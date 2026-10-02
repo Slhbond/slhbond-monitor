@@ -1,0 +1,1212 @@
+/* ==========================================================================
+   Slhbond-Monitor - 暗黑主题仪表盘
+   配色约定：
+     --bg          页面底色（近黑）
+     --card        卡片底色（深灰）
+     --text        主体文字（白）
+     --muted       次要文字（灰）
+     --accent      高亮提示（蓝）
+     --online      在线状态（绿）
+   ========================================================================== */
+
+:root {
+  --bg:            #0d0f13;
+  --bg-glow:       #16202f;
+  --card:          #1b1f27;
+  --card-2:        #21262f;
+  --border:        rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.12);
+  --text:          #ffffff;
+  --muted:         #98a2b3;
+  --muted-dim:     #6b7482;
+  --accent:        #4c8dff;
+  --accent-soft:   rgba(76, 141, 255, 0.14);
+  --accent-line:   rgba(76, 141, 255, 0.42);
+  --online:        #22c55e;
+  --offline:       #ef4444;
+  --pending:       #f59e0b;
+  --radius-card:   18px;
+  --radius-pill:   999px;
+  --font: "Segoe UI", "Microsoft YaHei", "PingFang SC", "Noto Sans SC",
+          system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --mono: "JetBrains Mono", "Cascadia Mono", Consolas, "SFMono-Regular",
+          "Liberation Mono", monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+body {
+  background:
+    radial-gradient(1100px 620px at 18% -12%, var(--bg-glow) 0%, transparent 62%),
+    radial-gradient(900px 520px at 105% 108%, #131a26 0%, transparent 58%),
+    var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.stage {
+  min-height: 100vh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 40px 24px 56px;
+}
+
+/* 仪表盘整体：一列卡片，行与行之间留统一间距 */
+.dashboard {
+  width: min(940px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* 一行里并排的卡片 */
+.card-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: stretch;
+}
+
+/* ---------------------------------------------------------------- 卡片 */
+
+.card {
+  position: relative;
+  width: 100%;
+  background: linear-gradient(168deg, var(--card-2) 0%, var(--card) 46%, #171b22 100%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 24px 60px rgba(0, 0, 0, 0.55),
+    0 2px 8px rgba(0, 0, 0, 0.4);
+  padding: 30px 32px 32px;
+}
+
+/* 顶部的细微高光，让纯色卡片不显得平板 */
+.card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
+  background: linear-gradient(90deg,
+              transparent, rgba(120, 170, 255, 0.35), transparent);
+  pointer-events: none;
+}
+
+/* ------------------------------------------------- 右上角小操作按钮 */
+
+.card-actions {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  gap: 8px;
+  z-index: 2;
+}
+
+.icon-btn {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--muted);
+  cursor: pointer;
+  transition: background .16s ease, color .16s ease,
+              border-color .16s ease, transform .16s ease;
+}
+
+.icon-btn svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.icon-btn:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+  color: var(--accent);
+}
+
+.icon-btn:active { transform: scale(0.94); }
+
+.icon-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.icon-btn.spinning svg { animation: spin .8s linear infinite; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------------------------------------------------- 左右两大布局 */
+
+.card-body {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 0;
+}
+
+.identity {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding-top: 6px;
+}
+
+.card-body > .sysinfo {
+  border-left: 1px solid var(--border);
+  padding-left: 26px;
+  min-width: 0;
+}
+
+/* -------------------------------------------------------- 左侧：标识 */
+
+.logo-wrap {
+  width: 74px;
+  height: 74px;
+  display: grid;
+  place-items: center;
+  border-radius: 20px;
+  background: radial-gradient(circle at 30% 25%, rgba(76, 141, 255, 0.14), transparent 68%);
+  border: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+
+.logo { width: 54px; height: 54px; display: block; }
+
+#logoLed { transition: fill .3s ease; }
+
+.project-name {
+  margin: 0 0 14px;
+  font-size: 21px;
+  font-weight: 650;
+  letter-spacing: 0.2px;
+  line-height: 1.25;
+}
+
+.project-name span {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.status-line {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 8px;
+  font-size: 13.5px;
+  color: var(--muted);
+}
+
+.version-line {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--muted-dim);
+  font-family: var(--mono);
+}
+
+/* 在线状态指示灯 */
+.led {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  background: var(--pending);
+  transition: background .3s ease, box-shadow .3s ease;
+}
+
+.led[data-state="online"] {
+  background: var(--online);
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.16),
+              0 0 10px rgba(34, 197, 94, 0.75);
+  animation: pulse 2.4s ease-in-out infinite;
+}
+
+.led[data-state="offline"] {
+  background: var(--offline);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.16);
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: .55; }
+}
+
+/* 「更新可用」蓝色提示按钮 —— 无更新时整块隐藏 */
+.update-btn {
+  margin-top: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px 7px 11px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-pill);
+  background: linear-gradient(180deg,
+              rgba(76, 141, 255, 0.24), rgba(76, 141, 255, 0.12));
+  color: #cfe0ff;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .18s ease, border-color .18s ease,
+              color .18s ease, transform .18s ease;
+}
+
+.update-btn svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.update-btn em {
+  font-style: normal;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--accent);
+  background: rgba(76, 141, 255, 0.16);
+  border-radius: var(--radius-pill);
+  padding: 1px 7px;
+}
+
+.update-btn:hover {
+  background: linear-gradient(180deg,
+              rgba(76, 141, 255, 0.36), rgba(76, 141, 255, 0.2));
+  border-color: var(--accent);
+  color: #ffffff;
+}
+
+.update-btn:active { transform: translateY(1px); }
+
+.update-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------ 右侧：系统信息区 */
+
+.sysinfo { min-width: 0; }
+
+.sysinfo-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+  padding-right: 76px;          /* 让标题避开右上角按钮 */
+}
+
+.sysinfo-head h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+.refresh-hint {
+  font-size: 12px;
+  color: var(--muted-dim);
+  white-space: nowrap;
+}
+
+.info-list { margin: 0; }
+
+.info-row {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 9.5px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.045);
+}
+
+.info-row:last-child { border-bottom: 0; }
+
+.info-row dt {
+  color: var(--muted);
+  font-size: 13.5px;
+  white-space: nowrap;
+}
+
+.info-row dd {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 地址类字段使用等宽字体，便于核对 */
+#f-ipv4, #f-ipv6, #f-hostname {
+  font-family: var(--mono);
+  font-size: 13.5px;
+  letter-spacing: -0.1px;
+}
+
+#f-uptime { font-variant-numeric: tabular-nums; }
+
+.info-row dd[data-state="pending"] { color: var(--muted-dim); }
+
+/* 值被截断且可悬浮查看时，给出可交互的暗示 */
+.info-row dd.is-truncated {
+  cursor: help;
+  text-decoration: underline dotted rgba(255, 255, 255, 0.22);
+  text-underline-offset: 3px;
+}
+
+/* ------------------------------------------------------------ 悬浮层 */
+
+.tooltip {
+  position: fixed;
+  z-index: 50;
+  max-width: min(560px, calc(100vw - 32px));
+  /* 硬盘详情有十几行；限高避免超出视口后被强行贴顶压住卡片 */
+  max-height: calc(100vh - 24px);
+  overflow: hidden;
+  padding: 8px 11px;
+  border: 1px solid var(--accent-line);
+  border-radius: 9px;
+  background: #10151d;
+  color: #dce8ff;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.45;
+  word-break: break-all;
+  white-space: pre-line;      /* 支持多行详情（硬盘悬浮卡片） */
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+  opacity: 0;
+  transform: translateY(4px);
+  pointer-events: none;
+  transition: opacity .14s ease, transform .14s ease;
+}
+
+.tooltip.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* -------------------------------------------------------------- 提示条 */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 32px;
+  transform: translate(-50%, 16px);
+  padding: 9px 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: #1c222c;
+  color: var(--text);
+  font-size: 13px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s ease, transform .2s ease;
+}
+
+.toast.visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.hidden { display: none !important; }
+
+/* ------------------------------------------------------------ 响应式 */
+
+@media (max-width: 720px) {
+  .stage { padding: 24px 14px; align-items: flex-start; }
+  .card { padding: 26px 20px 24px; }
+  .card-body {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 22px 0;
+  }
+  .card-body > .sysinfo {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+    padding-left: 0;
+    padding-top: 20px;
+  }
+  .sysinfo-head { padding-right: 0; }
+  .info-row { grid-template-columns: 96px minmax(0, 1fr); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+}
+
+/* ==========================================================================
+   CPU 总览 / NPU 卡片
+   ========================================================================== */
+
+/* ------------------------------------------------ 卡片头部：图标 + 标题 */
+
+.card-head {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin-bottom: 18px;
+  padding-right: 74px;              /* 避开右上角操作按钮 */
+}
+
+.card-head-text { min-width: 0; }
+
+.card-head-text h2 {
+  margin: 0;
+  font-size: 16.5px;
+  font-weight: 620;
+  letter-spacing: .3px;
+}
+
+.card-sub {
+  margin: 3px 0 0;
+  font-size: 12.5px;
+  color: var(--muted);
+  font-family: var(--mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-sub.is-truncated {
+  cursor: help;
+  text-decoration: underline dotted rgba(255, 255, 255, .22);
+  text-underline-offset: 3px;
+}
+
+/* CPU 状态图标：颜色随负载变化 ------------------------------------- */
+
+.chip-icon {
+  --chip: #22c55e;
+  flex: 0 0 auto;
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border-radius: 15px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, .028);
+  color: var(--chip);
+  transition: color .5s ease, border-color .5s ease, box-shadow .5s ease;
+}
+
+.chip-icon svg { width: 32px; height: 32px; display: block; }
+
+/* 空闲 -> 绿色；正常 -> 蓝色；偏高 -> 琥珀；接近满载 -> 红色 */
+.chip-icon[data-level="idle"]     { --chip: var(--online); }
+.chip-icon[data-level="normal"]   { --chip: var(--accent); }
+.chip-icon[data-level="high"]     { --chip: #f59e0b; }
+.chip-icon[data-level="critical"] { --chip: var(--offline); }
+
+/* NPU 图标：就绪/仅硬件/未检测。
+   注意 "unknown" 与 "off" 都要覆盖——JS 用的是前者，漏掉会回退成默认绿色。 */
+.chip-icon[data-state="ready"]   { --chip: var(--online); }
+.chip-icon[data-state="hw"]      { --chip: #f59e0b; }
+.chip-icon[data-state="off"],
+.chip-icon[data-state="unknown"] { --chip: #5a636f; }
+
+.chip-icon[data-level="critical"],
+.chip-icon[data-state="ready"] {
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, .03),
+              0 0 18px -6px var(--chip);
+}
+
+.chip-icon-sm { width: 44px; height: 44px; border-radius: 13px; }
+.chip-icon-sm svg { width: 27px; height: 27px; }
+
+/* ---------------------------------------------- CPU 上半部分：环形 + 指标 */
+
+.cpu-upper {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, .05);
+}
+
+.donut {
+  position: relative;
+  width: 130px;
+  height: 130px;
+  flex: 0 0 auto;
+}
+
+.donut svg { width: 100%; height: 100%; display: block; }
+
+.donut-track {
+  fill: none;
+  stroke: rgba(255, 255, 255, .07);
+  stroke-width: 11;
+}
+
+.donut-arc {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 11;
+  stroke-linecap: round;
+  stroke-dasharray: 0 314.16;       /* 2 * PI * r, r = 50 */
+  transition: stroke-dasharray .55s ease, stroke .5s ease;
+}
+
+.donut-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  pointer-events: none;
+}
+
+.donut-center strong {
+  font-size: 25px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.05;
+}
+
+.donut-center span {
+  font-size: 11px;
+  color: var(--muted-dim);
+  letter-spacing: .2px;
+}
+
+/* ------------------------------------------------ 指标网格（CPU 与 NPU） */
+
+.stat-grid {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 20px;
+  margin: 0;
+}
+
+.stat-grid-2 { gap: 13px 18px; margin-top: 16px; }
+
+.stat { min-width: 0; }
+
+.stat dt {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stat dd {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 620;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stat-grid-2 .stat dd { font-size: 16px; }
+
+/* ------------------------------------------------- 线程实时负载柱状图 */
+
+.cpu-lower { margin-top: 20px; }
+
+.cpu-lower-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.cpu-lower-head h3,
+.npu-bars h3 {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: .3px;
+}
+
+.muted { font-size: 11.5px; color: var(--muted-dim); font-family: var(--mono); }
+
+.core-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  height: 92px;
+}
+
+.core-bars-sm { height: 56px; }
+
+.core-bar {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.core-bar-track {
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: 56px;
+  display: flex;
+  align-items: flex-end;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, .06);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .035);
+  overflow: hidden;
+}
+
+.core-bar-fill {
+  width: 100%;
+  min-height: 3px;
+  border-radius: 7px;
+  background: linear-gradient(180deg, #6aa8ff, #3b6fe0);
+  transition: height .5s ease, background .5s ease;
+}
+
+.core-bar-fill[data-level="normal"]   { background: linear-gradient(180deg, #6aa8ff, #3b6fe0); }
+.core-bar-fill[data-level="high"]     { background: linear-gradient(180deg, #fbbf24, #f59e0b); }
+.core-bar-fill[data-level="critical"] { background: linear-gradient(180deg, #f87171, #ef4444); }
+.core-bar-fill[data-level="idle"]     { background: linear-gradient(180deg, #4ade80, #22c55e); }
+
+.core-bar-label {
+  font-size: 10.5px;
+  line-height: 1;
+  color: var(--muted-dim);
+  font-family: var(--mono);
+}
+
+/* ------------------------------------------------------------- NPU 卡片 */
+
+/* 让卡片成为纵向 flex，好把说明文字压到底部，
+   避免它和左侧更高的 CPU 卡片并排时中间留一大片空白。 */
+.card-npu {
+  display: flex;
+  flex-direction: column;
+}
+
+.npu-state-row { margin-bottom: 2px; }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: .2px;
+}
+
+.badge::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.badge[data-state="ready"] {
+  color: #86efac;
+  background: rgba(34, 197, 94, .13);
+  border-color: rgba(34, 197, 94, .38);
+}
+
+.badge[data-state="hw"] {
+  color: #fcd34d;
+  background: rgba(245, 158, 11, .13);
+  border-color: rgba(245, 158, 11, .38);
+}
+
+.badge[data-state="unknown"] {
+  color: var(--muted);
+  background: rgba(255, 255, 255, .055);
+  border-color: var(--border-strong);
+}
+
+.npu-bars { margin-top: 18px; }
+.npu-bars h3 { margin-bottom: 10px; }
+
+.npu-note {
+  margin: 18px 0 0;
+  padding: 10px 12px;
+  border-left: 2px solid var(--border-strong);
+  border-radius: 0 8px 8px 0;
+  background: rgba(255, 255, 255, .022);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted-dim);
+}
+
+.card-npu .npu-note { margin-top: auto; }
+
+/* 指标网格不要跟着卡片一起被拉伸，否则两行之间会撑出一大块空白 */
+.card-npu .stat-grid { flex: 0 0 auto; }
+
+.card-npu .stat dd { color: var(--text); }
+
+/* ==========================================================================
+   GPU / 网络 / 存储设备
+   ========================================================================== */
+
+/* ---------------------------------------------------------- GPU 卡片 */
+
+.gpu-freq { margin-bottom: 18px; }
+
+.gpu-freq-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.gpu-freq-value {
+  font-size: 24px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+/* 频率档位：每档一根柱子，当前档位高亮并显示数值 */
+.gpu-steps {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 62px;
+}
+
+.gpu-step {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 5px;
+}
+
+.gpu-step-bar {
+  width: 100%;
+  max-width: 44px;
+  border-radius: 6px 6px 3px 3px;
+  background: rgba(255, 255, 255, .07);
+  transition: background .45s ease, box-shadow .45s ease, height .45s ease;
+}
+
+/* 越高的档位柱子越高，直观表达频率阶梯 */
+.gpu-step[data-current="1"] .gpu-step-bar {
+  background: linear-gradient(180deg, #6aa8ff, #3b6fe0);
+  box-shadow: 0 0 16px -5px var(--accent);
+}
+
+.gpu-step-bar-gone {
+  background: rgba(255, 255, 255, .035);
+}
+
+.gpu-step-label {
+  font-size: 9.5px;
+  line-height: 1;
+  color: var(--muted-dim);
+  font-family: var(--mono);
+  white-space: nowrap;
+}
+
+.gpu-step[data-current="1"] .gpu-step-label { color: var(--accent); }
+
+/* -------------------------------------------------------- 网络卡片 */
+
+.net-wave {
+  position: relative;
+  margin: 2px 0 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .018);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .04);
+  overflow: hidden;
+}
+
+.net-wave svg { width: 100%; height: 140px; display: block; }
+
+.net-wave-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+}
+
+.net-wave-empty.hidden { display: none; }
+
+.net-grid line { stroke: rgba(255, 255, 255, .055); stroke-width: 1; }
+
+.net-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.net-line-rx { stroke: var(--accent); }
+.net-line-tx { stroke: var(--online); }
+.net-area { stroke: none; }
+.net-area-rx { fill: url(#rxFill); }
+.net-area-tx { fill: url(#txFill); }
+
+.net-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 16px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.net-legend-item { display: inline-flex; align-items: center; gap: 6px; }
+.net-legend-item b {
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+.dot-rx { background: var(--accent); }
+.dot-tx { background: var(--online); }
+.dot-peak { background: var(--muted-dim); }
+
+/* ------------------------------------------------------ 存储设备区 */
+
+.disk-section { display: flex; flex-direction: column; gap: 12px; }
+
+.section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 4px;
+}
+
+.section-head h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 620;
+  letter-spacing: .3px;
+}
+
+.disk-grid {
+  display: grid;
+  /* 固定尺寸而不是 1fr：无论插几块盘，卡片都保持"小型正方形"。
+     200px 是容纳"读写历史曲线 + 速率"后仍能保持方形的最小舒适尺寸。 */
+  grid-template-columns: repeat(auto-fill, 200px);
+  gap: 14px;
+  justify-content: start;
+}
+
+@media (max-width: 720px) {
+  .disk-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+}
+
+/* 一个卡片就是一块盘：Logo + 名称 + 容量 + 读写（含迷你曲线）+ 健康 */
+.disk-card {
+  --health: #5a636f;
+  position: relative;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 12px 11px;
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  background: linear-gradient(165deg, var(--card-2) 0%, var(--card) 55%, #171b22 100%);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .035) inset,
+              0 10px 26px rgba(0, 0, 0, .38);
+  cursor: default;
+  transition: border-color .2s ease, transform .2s ease, box-shadow .2s ease;
+}
+
+.disk-card:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-2px);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .05) inset,
+              0 16px 34px rgba(0, 0, 0, .5);
+}
+
+/* 健康等级 -> 主色，Logo 的 LED 与徽章都跟着它变 */
+.disk-card[data-health="healthy"] { --health: var(--online); }
+.disk-card[data-health="warning"] { --health: #f59e0b; }
+.disk-card[data-health="fault"]   { --health: var(--offline); }
+.disk-card[data-health="unknown"] { --health: #5a636f; }
+
+.disk-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+/* 硬盘 Logo：外形照着参考图（机身 + 深色前面板 + 状态灯） */
+.disk-logo {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  color: rgba(255, 255, 255, .82);
+  transition: color .4s ease;
+}
+
+.disk-logo svg { width: 100%; height: 100%; display: block; }
+
+.disk-led {
+  fill: var(--health);
+  transition: fill .4s ease;
+  filter: drop-shadow(0 0 4px var(--health));
+}
+
+.disk-check {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .035);
+  color: var(--muted);
+  cursor: pointer;
+  transition: background .16s ease, color .16s ease, border-color .16s ease;
+}
+
+.disk-check svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.disk-check:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+  color: var(--accent);
+}
+
+.disk-check:disabled { opacity: .5; cursor: progress; }
+.disk-check.spinning svg { animation: spin .8s linear infinite; }
+
+.disk-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin-bottom: 3px;
+}
+
+.disk-name {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 620;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 「系统盘」标记：装操作系统的那块盘 */
+.disk-sys {
+  flex: 0 0 auto;
+  padding: 1.5px 6px;
+  border-radius: var(--radius-pill);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: .2px;
+  color: #cfe0ff;
+  background: rgba(76, 141, 255, .16);
+  border: 1px solid var(--accent-line);
+  white-space: nowrap;
+}
+
+.disk-sys.hidden { display: none; }
+
+/* 方块内部的读写：一条迷你历史曲线 + 两个数字 */
+.disk-io {
+  margin-top: auto;
+  margin-bottom: 7px;
+}
+
+.disk-spark {
+  display: block;
+  width: 100%;
+  height: 24px;
+  margin-bottom: 5px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, .028);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .035);
+}
+
+.disk-spark path {
+  fill: none;
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.spark-read { stroke: var(--accent); }
+.spark-write { stroke: var(--online); }
+
+.disk-io-legend {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.io-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  min-width: 0;
+}
+
+.io-item i {
+  font-style: normal;
+  font-weight: 600;
+}
+
+.io-item-read i { color: var(--accent); }
+.io-item-write i { color: var(--online); }
+
+.io-item b {
+  color: var(--text);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.disk-meta {
+  margin: 0 0 7px;
+  font-size: 10.5px;
+  color: var(--muted-dim);
+  font-family: var(--mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.disk-cap { margin-top: 0; }
+
+.disk-cap-bar {
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, .07);
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.disk-cap-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--health);
+  opacity: .75;
+  transition: width .5s ease, background .4s ease;
+}
+
+.disk-cap-text {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  margin: 0 0 7px;
+  font-size: 10.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.disk-health {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  align-self: flex-start;
+  padding: 2.5px 8px;
+  border-radius: var(--radius-pill);
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--health);
+  background: rgba(255, 255, 255, .05);
+  border: 1px solid var(--health);
+  /* 让描边不至于喧宾夺主，颜色仍由 --health 决定 */
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .25);
+}
+
+.disk-health::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.disk-empty {
+  padding: 18px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 14px;
+  color: var(--muted-dim);
+  font-size: 12.5px;
+  text-align: center;
+}
+
+/* ------------------------------------------------------------ 响应式 */
+
+@media (max-width: 860px) {
+  .card-row { grid-template-columns: minmax(0, 1fr); }
+  .net-wave svg { height: 120px; }
+}
+
+@media (max-width: 720px) {
+  .stage { padding: 20px 12px 36px; align-items: flex-start; }
+  .dashboard { gap: 14px; }
+  .card { padding: 24px 18px 22px; }
+  .card-head { padding-right: 0; }
+  .cpu-upper { flex-direction: column; align-items: stretch; gap: 18px; }
+  .donut { align-self: center; }
+  .stat-grid { gap: 12px 14px; }
+  .stat dd { font-size: 17px; }
+  .core-bars { height: 68px; gap: 4px; }
+}

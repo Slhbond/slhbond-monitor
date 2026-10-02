@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Slhbond-Monitor · 系统监控</title>
+<link rel="stylesheet" href="/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='7' y='9' width='50' height='46' rx='7' fill='none' stroke='%235b9dff' stroke-width='3'/%3E%3Cline x1='13' y1='24.5' x2='51' y2='24.5' stroke='%235b9dff' stroke-width='2.4'/%3E%3Cline x1='13' y1='39.5' x2='51' y2='39.5' stroke='%235b9dff' stroke-width='2.4'/%3E%3Ccircle cx='52' cy='9' r='4' fill='%2322c55e'/%3E%3C/svg%3E">
+</head>
+<body>
+<main class="stage">
+<div class="dashboard">
+
+  <!-- ==================== 第一行：系统信息 ==================== -->
+  <section class="card" id="card" aria-labelledby="cardTitle">
+
+    <div class="card-actions">
+      <button type="button" class="icon-btn" id="btnRefresh" title="立即刷新" aria-label="立即刷新">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M20 11a8 8 0 1 0-2.3 5.7"/>
+          <polyline points="20 4 20 11 13 11"/>
+        </svg>
+      </button>
+      <button type="button" class="icon-btn" id="btnCopy" title="复制系统信息" aria-label="复制系统信息">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="9" y="9" width="11" height="11" rx="2.5"/>
+          <path d="M5 15H4.5A1.5 1.5 0 0 1 3 13.5v-9A1.5 1.5 0 0 1 4.5 3h9A1.5 1.5 0 0 1 15 4.5V5"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="card-body">
+      <aside class="identity">
+        <div class="logo-wrap">
+          <svg class="logo" viewBox="0 0 64 64" role="img" aria-label="Slhbond-Monitor 标志">
+            <defs>
+              <linearGradient id="slhStroke" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#6aa8ff"/>
+                <stop offset="100%" stop-color="#3b6fe0"/>
+              </linearGradient>
+              <filter id="ledGlow" x="-120%" y="-120%" width="340%" height="340%">
+                <feGaussianBlur stdDeviation="1.5" result="blur"/>
+                <feMerge>
+                  <feMergeNode in="blur"/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+            </defs>
+            <rect x="7" y="10" width="50" height="45" rx="7.5"
+                  fill="none" stroke="url(#slhStroke)" stroke-width="2.6"/>
+            <line x1="13" y1="25.5" x2="51" y2="25.5"
+                  stroke="url(#slhStroke)" stroke-width="1.9" stroke-linecap="round"/>
+            <line x1="13" y1="40.5" x2="51" y2="40.5"
+                  stroke="url(#slhStroke)" stroke-width="1.9" stroke-linecap="round"/>
+            <rect x="14.5" y="15" width="27" height="5.6" rx="2.8"
+                  fill="none" stroke="url(#slhStroke)" stroke-width="1.7"/>
+            <circle cx="47.5" cy="17.8" r="1.9" fill="#6aa8ff"/>
+            <rect x="14.5" y="30" width="27" height="5.6" rx="2.8"
+                  fill="none" stroke="url(#slhStroke)" stroke-width="1.7"/>
+            <circle cx="47.5" cy="32.8" r="1.9" fill="#6aa8ff"/>
+            <polyline points="14,48.5 22,48.5 26.5,44 30.5,51.5 34.5,46.5 41,46.5 50,46.5"
+                      fill="none" stroke="url(#slhStroke)" stroke-width="1.9"
+                      stroke-linecap="round" stroke-linejoin="round"/>
+            <circle id="logoLed" cx="52.5" cy="9.5" r="3.7"
+                    fill="#22c55e" filter="url(#ledGlow)"/>
+          </svg>
+        </div>
+
+        <h1 class="project-name" id="cardTitle">Slhbond<span>-Monitor</span></h1>
+
+        <p class="status-line">
+          <span class="led" id="statusLed" data-state="pending"></span>
+          <span id="statusText">连接中…</span>
+        </p>
+
+        <p class="version-line"><span id="versionText">v—</span></p>
+
+        <button type="button" class="update-btn hidden" id="updateBtn">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 19V5"/>
+            <polyline points="6 11 12 5 18 11"/>
+          </svg>
+          <span>更新可用</span>
+          <em id="updateVersion"></em>
+        </button>
+      </aside>
+
+      <section class="sysinfo">
+        <header class="sysinfo-head">
+          <h2>系统信息</h2>
+          <span class="refresh-hint" id="refreshHint">每 5 秒自动刷新</span>
+        </header>
+
+        <dl class="info-list">
+          <div class="info-row"><dt>平台类型</dt>
+            <dd id="f-platform" data-state="pending">—</dd></div>
+          <div class="info-row"><dt>系统版本</dt>
+            <dd id="f-osversion" data-state="pending">—</dd></div>
+          <div class="info-row"><dt>主机名</dt>
+            <dd id="f-hostname" data-state="pending">—</dd></div>
+          <div class="info-row"><dt>系统运行时长</dt>
+            <dd id="f-uptime" data-state="pending">—</dd></div>
+          <div class="info-row"><dt>IPv4 地址</dt>
+            <dd id="f-ipv4" data-state="pending">—</dd></div>
+          <div class="info-row"><dt>IPv6 地址</dt>
+            <dd id="f-ipv6" data-state="pending">—</dd></div>
+        </dl>
+      </section>
+    </div>
+  </section>
+
+
+  <!-- ==================== 第二行：CPU 总览 + GPU ==================== -->
+  <div class="card-row">
+
+    <section class="card card-cpu" aria-labelledby="cpuTitle">
+      <div class="card-actions">
+        <button type="button" class="icon-btn" id="btnCpuRefresh" title="立即刷新" aria-label="立即刷新 CPU">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M20 11a8 8 0 1 0-2.3 5.7"/>
+            <polyline points="20 4 20 11 13 11"/>
+          </svg>
+        </button>
+      </div>
+
+      <header class="card-head">
+        <span class="chip-icon" id="cpuChip" data-level="idle" aria-hidden="true">
+          <svg viewBox="0 0 48 48">
+            <g class="chip-pins" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <line x1="14" y1="3.5" x2="14" y2="8"/><line x1="20" y1="3.5" x2="20" y2="8"/>
+              <line x1="28" y1="3.5" x2="28" y2="8"/><line x1="34" y1="3.5" x2="34" y2="8"/>
+              <line x1="14" y1="40" x2="14" y2="44.5"/><line x1="20" y1="40" x2="20" y2="44.5"/>
+              <line x1="28" y1="40" x2="28" y2="44.5"/><line x1="34" y1="40" x2="34" y2="44.5"/>
+              <line x1="3.5" y1="14" x2="8" y2="14"/><line x1="3.5" y1="20" x2="8" y2="20"/>
+              <line x1="3.5" y1="28" x2="8" y2="28"/><line x1="3.5" y1="34" x2="8" y2="34"/>
+              <line x1="40" y1="14" x2="44.5" y2="14"/><line x1="40" y1="20" x2="44.5" y2="20"/>
+              <line x1="40" y1="28" x2="44.5" y2="28"/><line x1="40" y1="34" x2="44.5" y2="34"/>
+            </g>
+            <rect x="8" y="8" width="32" height="32" rx="6.5"
+                  fill="none" stroke="currentColor" stroke-width="2.3"/>
+            <line x1="14" y1="15.5" x2="34" y2="15.5" stroke="currentColor"
+                  stroke-width="1.6" stroke-linecap="round" opacity=".5"/>
+            <line x1="14" y1="19.5" x2="26" y2="19.5" stroke="currentColor"
+                  stroke-width="1.6" stroke-linecap="round" opacity=".5"/>
+            <polyline points="14,26.5 18,24 21,27.5 25,22.5 29,25.5 34,24"
+                      fill="none" stroke="currentColor" stroke-width="1.7"
+                      stroke-linecap="round" stroke-linejoin="round"/>
+            <g stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <line x1="16" y1="33.5" x2="16" y2="29"/><line x1="20" y1="33.5" x2="20" y2="26.5"/>
+              <line x1="24" y1="33.5" x2="24" y2="30.5"/><line x1="28" y1="33.5" x2="28" y2="27.5"/>
+              <line x1="32" y1="33.5" x2="32" y2="31"/>
+            </g>
+          </svg>
+        </span>
+        <div class="card-head-text">
+          <h2 id="cpuTitle">CPU 总览</h2>
+          <p class="card-sub" id="cpuModel">—</p>
+        </div>
+      </header>
+
+      <div class="cpu-upper">
+        <div class="donut" role="img" aria-labelledby="cpuUsageText">
+          <svg viewBox="0 0 120 120">
+            <circle class="donut-track" cx="60" cy="60" r="50"/>
+            <circle class="donut-arc" id="cpuArc" cx="60" cy="60" r="50"
+                    transform="rotate(-90 60 60)"/>
+          </svg>
+          <div class="donut-center">
+            <strong id="cpuUsageText">—</strong>
+            <span>平均使用率</span>
+          </div>
+        </div>
+
+        <dl class="stat-grid">
+          <div class="stat"><dt>核心</dt><dd id="cpuCores">—</dd></div>
+          <div class="stat"><dt>线程</dt><dd id="cpuThreads">—</dd></div>
+          <div class="stat"><dt>单线程最高占用</dt><dd id="cpuMaxCore">—</dd></div>
+          <div class="stat"><dt>CPU 最高温度</dt><dd id="cpuTemp">—</dd></div>
+        </dl>
+      </div>
+
+      <div class="cpu-lower">
+        <div class="cpu-lower-head">
+          <h3>线程实时负载</h3>
+          <span class="muted" id="cpuFreqHint"></span>
+        </div>
+        <div class="core-bars" id="coreBars"></div>
+      </div>
+    </section>
+
+    <!-- --------------------------- GPU --------------------------- -->
+    <section class="card card-gpu" aria-labelledby="gpuTitle">
+      <header class="card-head">
+        <span class="chip-icon chip-icon-sm" id="gpuChip" data-state="off" aria-hidden="true">
+          <svg viewBox="0 0 48 48">
+            <rect x="5" y="12" width="38" height="24" rx="5"
+                  fill="none" stroke="currentColor" stroke-width="2.3"/>
+            <circle cx="17" cy="24" r="6" fill="none" stroke="currentColor" stroke-width="2"/>
+            <g stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+              <line x1="17" y1="14" x2="17" y2="18"/><line x1="17" y1="30" x2="17" y2="34"/>
+              <line x1="9" y1="24" x2="11" y2="24"/><line x1="23" y1="24" x2="25" y2="24"/>
+            </g>
+            <g fill="currentColor">
+              <rect x="30" y="18" width="9" height="2.4" rx="1.2"/>
+              <rect x="30" y="23" width="9" height="2.4" rx="1.2"/>
+              <rect x="30" y="28" width="5.5" height="2.4" rx="1.2"/>
+            </g>
+          </svg>
+        </span>
+        <div class="card-head-text">
+          <h2 id="gpuTitle">GPU</h2>
+          <p class="card-sub" id="gpuModel">—</p>
+        </div>
+      </header>
+
+      <div class="gpu-freq">
+        <div class="gpu-freq-head">
+          <span class="gpu-freq-value" id="gpuFreqCur">—</span>
+          <span class="muted" id="gpuFreqRange"></span>
+        </div>
+        <!-- 频率档位：每一档一根柱子，当前档位高亮 -->
+        <div class="gpu-steps" id="gpuSteps" role="img" aria-label="GPU 频率档位"></div>
+      </div>
+
+      <dl class="stat-grid stat-grid-2">
+        <div class="stat"><dt>驱动</dt><dd id="gpuDriver">—</dd></div>
+        <div class="stat"><dt>温度</dt><dd id="gpuTemp">—</dd></div>
+        <div class="stat"><dt>电源状态</dt><dd id="gpuPower">—</dd></div>
+        <div class="stat"><dt>上电占比</dt><dd id="gpuActive">—</dd></div>
+      </dl>
+
+      <p class="npu-note" id="gpuNote">—</p>
+    </section>
+  </div>
+
+
+  <!-- ==================== 第三行：网络 + NPU ==================== -->
+  <div class="card-row">
+
+    <section class="card card-net" aria-labelledby="netTitle">
+      <header class="card-head">
+        <span class="chip-icon chip-icon-sm" id="netChip" data-state="off" aria-hidden="true">
+          <svg viewBox="0 0 48 48">
+            <g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+              <path d="M24 40V26"/>
+              <path d="M10 14h28"/>
+              <path d="M24 26 12 16"/><path d="M24 26 36 16"/>
+            </g>
+            <g fill="currentColor">
+              <rect x="6" y="9" width="8" height="7" rx="2"/>
+              <rect x="34" y="9" width="8" height="7" rx="2"/>
+              <rect x="20" y="37" width="8" height="7" rx="2"/>
+              <circle cx="24" cy="26" r="2.6"/>
+            </g>
+          </svg>
+        </span>
+        <div class="card-head-text">
+          <h2 id="netTitle">网络</h2>
+          <p class="card-sub" id="netIface">—</p>
+        </div>
+      </header>
+
+      <!-- 实时波形 -->
+      <div class="net-wave">
+        <svg id="netWaveSvg" viewBox="0 0 600 150" preserveAspectRatio="none" role="img"
+             aria-label="网络吞吐波形">
+          <defs>
+            <linearGradient id="rxFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#4c8dff" stop-opacity=".38"/>
+              <stop offset="100%" stop-color="#4c8dff" stop-opacity="0"/>
+            </linearGradient>
+            <linearGradient id="txFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#22c55e" stop-opacity=".30"/>
+              <stop offset="100%" stop-color="#22c55e" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <g class="net-grid" id="netGrid"></g>
+          <path class="net-area net-area-rx" id="netRxArea" d=""/>
+          <path class="net-area net-area-tx" id="netTxArea" d=""/>
+          <path class="net-line net-line-rx" id="netRxLine" d=""/>
+          <path class="net-line net-line-tx" id="netTxLine" d=""/>
+        </svg>
+        <div class="net-wave-empty muted" id="netWaveEmpty">正在采集波形…</div>
+      </div>
+
+      <div class="net-legend">
+        <span class="net-legend-item"><i class="dot dot-rx"></i>接收 <b id="netRxRate">—</b></span>
+        <span class="net-legend-item"><i class="dot dot-tx"></i>发送 <b id="netTxRate">—</b></span>
+        <span class="net-legend-item"><i class="dot dot-peak"></i>峰值 <b id="netPeak">—</b></span>
+      </div>
+
+      <dl class="stat-grid stat-grid-2">
+        <div class="stat"><dt>链路速率</dt><dd id="netSpeed">—</dd></div>
+        <div class="stat"><dt>累计接收</dt><dd id="netRxTotal">—</dd></div>
+        <div class="stat"><dt>累计发送</dt><dd id="netTxTotal">—</dd></div>
+        <div class="stat"><dt>错误 / 丢包</dt><dd id="netErrors">—</dd></div>
+      </dl>
+    </section>
+
+    <!-- --------------------------- NPU --------------------------- -->
+    <section class="card card-npu" aria-labelledby="npuTitle">
+      <header class="card-head">
+        <span class="chip-icon chip-icon-sm" id="npuChip" data-state="off" aria-hidden="true">
+          <svg viewBox="0 0 48 48">
+            <rect x="6" y="9" width="36" height="30" rx="7"
+                  fill="none" stroke="currentColor" stroke-width="2.3"/>
+            <g stroke="currentColor" stroke-width="1.4" opacity=".55">
+              <line x1="15" y1="17" x2="24" y2="21"/><line x1="15" y1="24" x2="24" y2="24"/>
+              <line x1="15" y1="31" x2="24" y2="27"/><line x1="24" y1="21" x2="33" y2="24"/>
+              <line x1="24" y1="27" x2="33" y2="24"/>
+            </g>
+            <g fill="currentColor">
+              <circle cx="15" cy="17" r="2.6"/><circle cx="15" cy="24" r="2.6"/>
+              <circle cx="15" cy="31" r="2.6"/><circle cx="24" cy="21" r="2.6"/>
+              <circle cx="24" cy="27" r="2.6"/><circle cx="33" cy="24" r="3"/>
+            </g>
+          </svg>
+        </span>
+        <div class="card-head-text">
+          <h2 id="npuTitle">NPU</h2>
+          <p class="card-sub" id="npuHardware">—</p>
+        </div>
+      </header>
+
+      <div class="npu-state-row">
+        <span class="badge" id="npuBadge" data-state="unknown">检测中</span>
+      </div>
+
+      <dl class="stat-grid stat-grid-2">
+        <div class="stat"><dt>负载</dt><dd id="npuLoad">—</dd></div>
+        <div class="stat"><dt>频率</dt><dd id="npuFreq">—</dd></div>
+        <div class="stat"><dt>驱动</dt><dd id="npuDriver">—</dd></div>
+        <div class="stat"><dt>算力核心</dt><dd id="npuCores">—</dd></div>
+      </dl>
+
+      <div class="npu-bars hidden" id="npuBarsWrap">
+        <h3>核心负载</h3>
+        <div class="core-bars core-bars-sm" id="npuBars"></div>
+      </div>
+
+      <p class="npu-note" id="npuNote">—</p>
+    </section>
+  </div>
+
+
+  <!-- ==================== 第四行：存储设备 ==================== -->
+  <section class="disk-section" aria-labelledby="diskTitle">
+    <header class="section-head">
+      <h2 id="diskTitle">存储设备</h2>
+      <span class="muted" id="diskHint">插入硬盘后自动出现</span>
+    </header>
+    <div class="disk-grid" id="diskGrid"></div>
+  </section>
+
+</div><!-- /.dashboard -->
+</main>
+
+<div class="tooltip" id="tooltip" role="tooltip" aria-hidden="true"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="/app.js"></script>
+</body>
+</html>
