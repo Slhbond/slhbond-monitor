@@ -1,0 +1,5 @@
+{
+  "version": "1.1.0",
+  "url": "http://192.168.5.100/slhbond-monitor-1.1.0.tar.gz",
+  "notes": "示例清单：把 version 改成高于当前编译版本的值，前端就会出现蓝色「更新可用」按钮。"
+}

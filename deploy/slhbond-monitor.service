@@ -1,0 +1,50 @@
+[Unit]
+Description=Slhbond-Monitor - 轻量级 Linux 系统监控
+Documentation=file:@PREFIX@/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=@PREFIX@/bin/slhbond-monitor --foreground --config @CONF@
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=10
+KillSignal=SIGTERM
+
+# 以非 root 身份运行；进程只需要读 /proc 与监听端口。
+DynamicUser=yes
+NoNewPrivileges=yes
+PrivateTmp=yes
+# PrivateDevices 会隐藏 /dev/sda 之类的块设备，SMART 健康检测需要打开它们，
+# 所以这里刻意不开；改用一个 SupplementaryGroups 把磁盘组补上，见下方注释。
+# PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+# 硬盘健康检测要调用 smartctl 打开块设备：
+#   - disk 组成员身份用于打开 /dev/sdX；
+#   - CAP_SYS_RAWIO 用于 SG_IO 直通 ATA 命令（缺了会报 Operation not permitted）。
+# 只授予这一位能力，DynamicUser 与 NoNewPrivileges 都保持不变。
+SupplementaryGroups=disk
+CapabilityBoundingSet=CAP_SYS_RAWIO
+AmbientCapabilities=CAP_SYS_RAWIO
+# 小份持久状态（已做过首次自动检测的硬盘名单与结论）放在这里。
+# StateDirectory 会按服务身份创建该目录并授权；DynamicUser 下 /opt 是写不进去的，
+# 所以状态目录不要指到 @PREFIX@。
+StateDirectory=slhbond-monitor
+StateDirectoryMode=0750
+# AF_NETLINK 是必须的：getifaddrs(3) 通过 netlink 套接字枚举地址，
+# 漏掉它会让 IPv4/IPv6 全部变成"未获取"。
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+# 只有安装目录允许写入。
+ReadWritePaths=@PREFIX@
+
+[Install]
+WantedBy=multi-user.target
