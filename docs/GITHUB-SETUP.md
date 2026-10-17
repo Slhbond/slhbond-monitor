@@ -4,6 +4,39 @@
 
 ---
 
+## 最快的路径（三分钟）
+
+项目根目录带了一个 `publish.ps1`，把命令行部分压缩成一条命令。
+**但有三件事必须你先在浏览器里做完**，脚本代替不了：
+
+1. **建仓库**：<https://github.com/new> → 名字 `slhbond-monitor` → 选 **Public**
+   → README / .gitignore / license **都不要勾**
+2. **建令牌**：<https://github.com/settings/tokens> → **Tokens (classic)** →
+   **Generate new token (classic)** → 勾 **`repo`** → 复制 `ghp_...`（只显示一次）
+3. **开写权限**：仓库 → Settings → Actions → General → 最下面
+   **Workflow permissions** → **Read and write** → Save
+
+然后在这个项目目录里：
+
+```powershell
+.\publish.ps1 -User 你的GitHub用户名
+```
+
+照着弹窗提示输入用户名和**令牌**（不是密码）。推完脚本会把接下来要点的链接都打出来。
+
+以后每次发新版：
+
+```powershell
+.\publish.ps1 -User 你的GitHub用户名 -Release 1.21
+```
+
+它会改 `VERSION`、提交、打 tag、推送，GitHub Actions 自动打包发布。
+
+> 下面是从零开始的完全手动版，遇到问题可以对照着看。
+> 不想用脚本也可以全程手动，两种方式结果一样。
+
+---
+
 ## 0. 全景图：要搭的是什么
 
 ```
