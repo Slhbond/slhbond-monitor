@@ -1,0 +1,8 @@
+{
+  "version": "1.21",
+  "url": "https://github.com/你的用户名/slhbond-monitor/releases/download/v1.21/slhbond-monitor-1.21.tar.gz",
+  "sha256": "把发布包的 SHA-256 填在这里（用 deploy/make-manifest.sh 自动生成最稳妥）",
+  "size": 5400000,
+  "notes": "把 version 改成高于当前编译版本的值，面板上就会出现蓝色「更新可用」按钮。",
+  "published": "2026-10-17T00:00:00Z"
+}

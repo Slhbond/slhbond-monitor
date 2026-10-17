@@ -1,0 +1,25 @@
+# 构建产物
+build/
+dist/
+*.o
+*.d
+*.a
+
+# 编辑器与系统垃圾
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 运行期数据（不该进仓库）
+*.log
+*.bin
+*.state
+core
+core.*
+
+# 本地测试脚本（不随项目发布）
+_deploy/

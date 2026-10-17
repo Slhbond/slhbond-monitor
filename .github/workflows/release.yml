@@ -1,0 +1,86 @@
+name: Release
+
+# 打一个 v 开头的 tag 就自动发布：
+#   git tag v1.21 && git push origin v1.21
+#
+# 这个工作流会：
+#   1. 校验 tag 与 VERSION 文件是否一致（防止发出装不上的包）
+#   2. make check（编译告警即失败）并打包
+#   3. 计算 SHA-256，生成 update.json
+#   4. 把「发布包 + update.json」作为 Release 附件上传
+#
+# 之后设备只要指向
+#   https://github.com/你的用户名/你的仓库/releases/latest/download/update.json
+# 就能自动发现新版本 —— 这个地址永远指向最新 Release，配一次就够了。
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 取源码
+        uses: actions/checkout@v4
+
+      - name: 校验 tag 与 VERSION 一致
+        id: ver
+        run: |
+          VERSION="$(tr -d '[:space:]' < VERSION)"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "VERSION 文件: ${VERSION}"
+          echo "触发 tag    : ${GITHUB_REF_NAME}"
+          if [ "v${VERSION}" != "${GITHUB_REF_NAME}" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} 与 VERSION (${VERSION}) 不一致。先改 VERSION 并提交，再重新打 tag。"
+            exit 1
+          fi
+
+      - name: 编译并打包
+        run: |
+          make check
+          make dist
+
+      - name: 生成 update.json
+        run: |
+          V="${{ steps.ver.outputs.version }}"
+          PKG="dist/slhbond-monitor-${V}.tar.gz"
+          SHA="$(sha256sum "$PKG" | awk '{print $1}')"
+          SIZE="$(stat -c %s "$PKG")"
+          URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/slhbond-monitor-${V}.tar.gz"
+          NOW="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+          cat > dist/update.json <<JSON
+          {
+            "version": "${V}",
+            "url": "${URL}",
+            "sha256": "${SHA}",
+            "size": ${SIZE},
+            "notes": "见本次 Release 的说明",
+            "published": "${NOW}"
+          }
+          JSON
+
+          echo "包大小: ${SIZE} 字节"
+          echo "摘要  : ${SHA}"
+          cat dist/update.json
+
+      - name: 发布 Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          V="${{ steps.ver.outputs.version }}"
+          # --generate-notes 由 GitHub 自动列出这次提交；
+          # --latest 保证 releases/latest/download/ 指向这一版。
+          gh release create "${GITHUB_REF_NAME}" \
+            "dist/slhbond-monitor-${V}.tar.gz" \
+            "dist/update.json" \
+            --title "Slhbond-Monitor ${V}" \
+            --generate-notes \
+            --latest

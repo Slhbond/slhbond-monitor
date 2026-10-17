@@ -1,0 +1,13 @@
+[Unit]
+Description=定期检查是否有暂存的 Slhbond-Monitor 更新
+
+[Timer]
+# 开机 3 分钟后第一次检查，之后每 5 分钟一次
+OnBootSec=3min
+OnUnitActiveSec=5min
+# 关机期间错过的检查不补跑
+Persistent=false
+Unit=slhbond-monitor-update.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,17 @@
+[Unit]
+Description=Slhbond-Monitor 应用暂存的更新
+Documentation=file:@PREFIX@/README.md
+# 只在机器已经联网的时候才尝试，避免开机阶段白跑一次
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=@PREFIX@/bin/slhbond-monitor-update
+# 一次更新包含编译，慢一点的板子要几分钟
+TimeoutStartSec=900
+# 更新只是后台任务，让出 CPU 与磁盘给正常业务
+Nice=10
+IOSchedulingClass=idle
+# 这个单元必须以 root 运行：它要写 /opt、改 /etc、重启 systemd 单元。
+# 它执行的每一步都来自已经过 SHA-256 校验的发布包，而不是网络输入。
