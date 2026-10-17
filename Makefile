@@ -82,6 +82,8 @@ dist: $(BIN)
 	 cp -r $(SRCDIR) $(WEBDIR) $(DEPLOYDIR) Makefile VERSION README.md \
 	      deploy.sh dist/$(PROJECT)-$(VERSION)/
 	@chmod +x dist/$(PROJECT)-$(VERSION)/deploy.sh
+	@# 设计参考图只是仓库里的资料，装到用户机器上没用
+	@rm -rf dist/$(PROJECT)-$(VERSION)/docs/ui-reference
 	@# 去掉可能带进来的 Windows 行尾，否则目标机上 bash 会报 bad interpreter
 	@find dist/$(PROJECT)-$(VERSION) -type f \
 	      \( -name '*.sh' -o -name '*.conf' -o -name '*.service' \
