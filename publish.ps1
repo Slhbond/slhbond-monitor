@@ -123,8 +123,14 @@ Info "  密码   = 个人访问令牌（ghp_ 开头），不是账号密码"
 Info "  令牌生成： https://github.com/settings/tokens   （只勾 repo）"
 
 if ($Force) {
-    # 先抓一次远端，--force-with-lease 才有比较基准
-    git fetch origin 2>$null | Out-Null
+    # 先抓一次远端，--force-with-lease 才有比较基准。
+    # git fetch 把进度写到 stderr，而 ErrorActionPreference=Stop 会把它当成致命
+    # 错误抛出来，所以这一段临时放宽并把两个流都丢弃。
+    $old = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    git fetch origin 2>&1 | Out-Null
+    $ErrorActionPreference = $old
+
     Warn "使用 --force-with-lease 覆盖远端 main"
     git push --force-with-lease -u origin main
 } else {
