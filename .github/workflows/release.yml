@@ -73,9 +73,25 @@ jobs:
 
       - name: 发布 Release
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 两条路任选其一：
+          #
+          #   1. 仓库密钥 RELEASE_TOKEN（个人访问令牌，勾 repo）
+          #      Settings -> Secrets and variables -> Actions -> New repository secret
+          #      这条不依赖任何仓库权限设置，最稳。
+          #
+          #   2. 内置的 GITHUB_TOKEN
+          #      需要在 Settings -> Actions -> General -> Workflow permissions
+          #      选 "Read and write permissions"，否则会报
+          #      Resource not accessible by integration。
+          #
+          # 下面的表达式就是「有 RELEASE_TOKEN 就用它，没有再退回 GITHUB_TOKEN」。
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           V="${{ steps.ver.outputs.version }}"
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "::error::没有可用的 token"
+            exit 1
+          fi
           # --generate-notes 由 GitHub 自动列出这次提交；
           # --latest 保证 releases/latest/download/ 指向这一版。
           gh release create "${GITHUB_REF_NAME}" \
