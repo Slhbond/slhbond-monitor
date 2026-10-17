@@ -302,16 +302,66 @@ static int secs_until_daily(int hour)
     }
 }
 
+/**
+ * Sleep until `deadline`, tolerating wakeups that are not ours.
+ *
+ * pthread_cond_timedwait may return before the deadline (a spurious wakeup, or
+ * a signal delivered to the thread). Treating that as "time is up" turned into
+ * an early check: an 11:00 daily check once fired at 10:38. The fix is the
+ * textbook one - only stop waiting when the clock really reached the deadline.
+ *
+ * Must be called with g_lock held; returns with it held.
+ */
+static int wait_until_locked(struct timespec *deadline)
+{
+    for (;;) {
+        struct timespec now;
+        int             rc;
+
+        if (g_stop)
+            return -1;
+
+        rc = pthread_cond_timedwait(&g_wake, &g_lock, deadline);
+        clock_gettime(CLOCK_REALTIME, &now);
+
+        if (now.tv_sec > deadline->tv_sec)
+            return 0;
+        if (now.tv_sec == deadline->tv_sec && now.tv_nsec >= deadline->tv_nsec)
+            return 0;
+        (void)rc;      /* ETIMEDOUT before the deadline cannot happen, but a
+                        * clock step backwards can; just wait again. */
+    }
+}
+
+/**
+ * Minimum spacing between automatic checks, in seconds.
+ *
+ * wait_until_locked already refuses to return before the deadline, so this is
+ * belt-and-braces. It exists because a startup burst of ~33 checks in 8 s was
+ * observed once and never reproduced: whatever made the deadline look past,
+ * this makes it impossible for the poller to hammer the update server.
+ */
+#define AUTO_CHECK_MIN_GAP 5
+
 static void *checker_main(void *arg)
 {
     SLH_UNUSED(arg);
+
+    int64_t last_check = 0;
 
     for (;;) {
         struct timespec deadline;
         int wait_sec;
         int daily_hour;
+        int64_t now = slh_now_sec();
 
-        version_check_now();
+        if (last_check == 0 || now - last_check >= AUTO_CHECK_MIN_GAP) {
+            version_check_now();
+            last_check = slh_now_sec();
+        } else {
+            LOG_DEBUG("update: skipping check, only %lld s since the last one",
+                      (long long)(now - last_check));
+        }
 
         pthread_mutex_lock(&g_lock);
         wait_sec = g_interval_sec;
@@ -324,19 +374,28 @@ static void *checker_main(void *arg)
             if (until_daily > 0 && until_daily < wait_sec)
                 wait_sec = until_daily;
         }
-        if (wait_sec < 1)
-            wait_sec = 1;
+        if (wait_sec < AUTO_CHECK_MIN_GAP)
+            wait_sec = AUTO_CHECK_MIN_GAP;
 
         clock_gettime(CLOCK_REALTIME, &deadline);
         deadline.tv_sec += wait_sec;
 
+        LOG_DEBUG("update: sleeping %d s until %lld.%09ld",
+                  wait_sec, (long long)deadline.tv_sec, deadline.tv_nsec);
+
         pthread_mutex_lock(&g_lock);
-        if (!g_stop)
-            pthread_cond_timedwait(&g_wake, &g_lock, &deadline);
         {
+            int rc = wait_until_locked(&deadline);
             int stop = g_stop;
+            struct timespec woke;
+
+            clock_gettime(CLOCK_REALTIME, &woke);
             pthread_mutex_unlock(&g_lock);
-            if (stop)
+            LOG_DEBUG("update: woke rc=%d at %lld.%09ld (%+lld ms vs deadline)",
+                      rc, (long long)woke.tv_sec, woke.tv_nsec,
+                      (long long)(woke.tv_sec - deadline.tv_sec) * 1000 +
+                      (woke.tv_nsec - deadline.tv_nsec) / 1000000);
+            if (rc != 0 || stop)
                 break;
         }
     }

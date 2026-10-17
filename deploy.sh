@@ -175,6 +175,25 @@ install_files() {
 
     [ -f "$SRC_DIR/README.md" ] && install -m 0644 "$SRC_DIR/README.md" "$PREFIX/README.md"
     [ -f "$SRC_DIR/VERSION" ]   && install -m 0644 "$SRC_DIR/VERSION"   "$PREFIX/VERSION"
+
+    # 清单占位文件：不装的话「检查版本」会直接报「无法读取 update.json」，
+    # 看起来像坏了。放一份与本版本相同的占位清单，检查会成功并显示"已是最新版本"，
+    # 用户按文档改成 GitHub 地址即可。已存在就不动（可能是用户自己配的）。
+    if [ ! -f "$PREFIX/update.json" ] && [ -f "$SRC_DIR/deploy/update.json.example" ]; then
+        if [ -f "$SRC_DIR/VERSION" ]; then
+            ver=$(tr -d '[:space:]' < "$SRC_DIR/VERSION")
+            cat > "$PREFIX/update.json" <<EOF
+{
+  "version": "$ver",
+  "notes": "占位清单。改成你的 GitHub 地址后即可自动检查更新，见 docs/GITHUB-SETUP.md"
+}
+EOF
+        else
+            install -m 0644 "$SRC_DIR/deploy/update.json.example" "$PREFIX/update.json"
+        fi
+        chmod 0644 "$PREFIX/update.json"
+        ok "$PREFIX/update.json（占位清单）"
+    fi
     if [ -d "$SRC_DIR/docs" ]; then
         for f in "$SRC_DIR"/docs/*; do
             [ -f "$f" ] || continue
