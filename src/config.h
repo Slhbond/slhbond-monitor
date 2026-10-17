@@ -16,7 +16,15 @@
 #define SLH_POLL_MS_DEFAULT     5000
 #define SLH_CACHE_MS_DEFAULT    900
 #define SLH_UPDATE_SEC_DEFAULT  1800
-#define SLH_MANIFEST_DEFAULT    "/opt/slhbond-monitor/update.json"
+/*
+ * 默认清单地址直接指向本项目在 GitHub 上「最新一次 Release」的清单。
+ *
+ * 这样别人装完不用改任何配置就能收到后续更新 —— 这正是发布这个项目的意义。
+ * 想关掉或换成自己服务器的地址，改 /etc/slhbond-monitor.conf 里的
+ * update_manifest（或 update_check = false）即可。
+ */
+#define SLH_MANIFEST_DEFAULT \
+    "https://github.com/Slhbond/slhbond-monitor/releases/latest/download/update.json"
 /* Directory for small persistent runtime state. It must be writable by the
  * service account; under systemd this is provided by StateDirectory=, which
  * creates the path with the DynamicUser's ownership. */
