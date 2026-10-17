@@ -23,7 +23,10 @@ param(
     [Parameter(Mandatory = $true)][string]$User,
     [string]$Repo = "slhbond-monitor",
     [string]$Release,
-    [string]$Email
+    [string]$Email,
+    # 远端已有内容、且与本地历史不同源时（比如网页上传过的旧快照），
+    # 用本地覆盖远端。--force-with-lease 会在远端于 fetch 之后又被改动时安全失败。
+    [switch]$Force
 )
 
 $ErrorActionPreference = "Stop"
@@ -119,9 +122,22 @@ Info "  用户名 = $User"
 Info "  密码   = 个人访问令牌（ghp_ 开头），不是账号密码"
 Info "  令牌生成： https://github.com/settings/tokens   （只勾 repo）"
 
-git push -u origin main
+if ($Force) {
+    # 先抓一次远端，--force-with-lease 才有比较基准
+    git fetch origin 2>$null | Out-Null
+    Warn "使用 --force-with-lease 覆盖远端 main"
+    git push --force-with-lease -u origin main
+} else {
+    git push -u origin main
+}
+
 if ($LASTEXITCODE -ne 0) {
-    throw "推送 main 失败。检查：仓库建了吗？令牌勾了 repo 吗？仓库名是 $Repo 吗？"
+    Write-Host ""
+    if (-not $Force) {
+        Warn "如果远端是先网页上传过、历史与本地不同源，加 -Force 重试："
+        Info ".\publish.ps1 -User $User -Force"
+    }
+    throw "推送 main 失败。检查：令牌勾了 repo 吗？仓库名是 $Repo 吗？账号对 $User 对吗？"
 }
 Ok "main 已推送"
 
