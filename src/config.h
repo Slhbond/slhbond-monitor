@@ -61,6 +61,13 @@ typedef struct {
     int  update_enabled;
     char update_manifest[512];   /* local path or http:// URL, "" = off */
     int  update_interval_sec;
+    /*
+     * Hour of the day (0-23) for the daily automatic check, -1 to disable.
+     * 0 means midnight, which is what the panel documents. Kept separate from
+     * update_interval_sec because "check every 30 minutes" and "check at 00:00
+     * every night" are different promises and users ask for both.
+     */
+    int  update_daily_hour;
 
     /* --- per-second history ---------------------------------------- */
     int history_enabled;

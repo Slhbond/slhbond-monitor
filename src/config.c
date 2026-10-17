@@ -31,6 +31,7 @@ void config_defaults(config_t *cfg)
     slh_strlcpy(cfg->update_manifest, SLH_MANIFEST_DEFAULT,
                 sizeof(cfg->update_manifest));
     cfg->update_interval_sec = SLH_UPDATE_SEC_DEFAULT;
+    cfg->update_daily_hour = 0;          /* 每天 0 点自动检查一次 */
 
     cfg->history_enabled = 1;
     cfg->history_hours = SLH_HISTORY_HOURS_DEFAULT;
@@ -65,6 +66,11 @@ void config_normalise(config_t *cfg)
     cfg->poll_ms = clamp_int(cfg->poll_ms, 1000, 600000);
     cfg->cache_ms = clamp_int(cfg->cache_ms, 0, 60000);
     cfg->update_interval_sec = clamp_int(cfg->update_interval_sec, 60, 86400);
+    /* -1 keeps the daily check off; anything else is pinned to 0..23. */
+    if (cfg->update_daily_hour >= 24)
+        cfg->update_daily_hour = cfg->update_daily_hour % 24;
+    if (cfg->update_daily_hour < -1)
+        cfg->update_daily_hour = -1;
 
     cfg->history_hours = clamp_int(cfg->history_hours, 1, 720);
     cfg->history_interval_sec = clamp_int(cfg->history_interval_sec, 1, 60);
@@ -172,6 +178,10 @@ static int apply_setting(config_t *cfg, const char *key, const char *value)
     }
     if (strcmp(key, "update_interval") == 0) {
         cfg->update_interval_sec = atoi(value);
+        return 1;
+    }
+    if (strcmp(key, "update_daily_hour") == 0) {
+        cfg->update_daily_hour = atoi(value);
         return 1;
     }
 

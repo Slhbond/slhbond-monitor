@@ -94,6 +94,7 @@ static pthread_cond_t   g_wake = PTHREAD_COND_INITIALIZER;
 static int              g_stop;
 static char             g_manifest[512];
 static int              g_interval_sec = SLH_UPDATE_SEC_DEFAULT;
+static int              g_daily_hour = 0;
 
 void version_state_init(void)
 {
@@ -168,6 +169,30 @@ static int64_t manifest_get_int(const char *json, const char *key)
     return (int64_t)strtoll(p, NULL, 10);
 }
 
+static int secs_until_daily(int hour);
+
+/**
+ * Stamp the attempt and work out when the poller will look again, so the panel
+ * can show "上次检查 / 下次检查" instead of leaving the user guessing whether
+ * the nightly check is actually scheduled.
+ */
+static void note_check_locked(void)
+{
+    int64_t now = slh_now_sec();
+    int64_t next = now + g_interval_sec;
+    int     d;
+
+    slh_rfc3339_local((time_t)now, g_state.checked_at,
+                      sizeof(g_state.checked_at));
+    g_state.checked_ts = now;
+    g_state.daily_hour = g_daily_hour;
+
+    d = secs_until_daily(g_daily_hour);
+    if (d > 0 && now + d < next)
+        next = now + d;
+    g_state.next_check_at = next;
+}
+
 int version_check_now(void)
 {
     char            manifest[512];
@@ -194,7 +219,7 @@ int version_check_now(void)
         pthread_mutex_lock(&g_lock);
         g_state.last_check_ok = 0;
         slh_strlcpy(g_state.last_error, err, sizeof(g_state.last_error));
-        slh_strlcpy(g_state.checked_at, stamp, sizeof(g_state.checked_at));
+        note_check_locked();
         pthread_mutex_unlock(&g_lock);
         LOG_WARN("update check failed for %s: %s", manifest, err);
         return -1;
@@ -206,7 +231,7 @@ int version_check_now(void)
         g_state.last_check_ok = 0;
         slh_strlcpy(g_state.last_error, "清单缺少 version 字段",
                     sizeof(g_state.last_error));
-        slh_strlcpy(g_state.checked_at, stamp, sizeof(g_state.checked_at));
+        note_check_locked();
         pthread_mutex_unlock(&g_lock);
         LOG_WARN("update manifest %s has no usable 'version' field", manifest);
         return -1;
@@ -231,7 +256,7 @@ int version_check_now(void)
     slh_strlcpy(g_state.latest, latest, sizeof(g_state.latest));
     slh_strlcpy(g_state.release_url, url, sizeof(g_state.release_url));
     slh_strlcpy(g_state.notes, notes, sizeof(g_state.notes));
-    slh_strlcpy(g_state.checked_at, stamp, sizeof(g_state.checked_at));
+    note_check_locked();
     slh_strlcpy(g_state.last_error, "", sizeof(g_state.last_error));
     g_state.last_check_ok = 1;
     g_state.update_available = version_compare(latest, g_state.current) > 0 ? 1 : 0;
@@ -250,6 +275,33 @@ int version_check_now(void)
 /* Background poller                                                   */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Seconds from now until the next `hour`:00 local time.
+ *
+ * The daily check and the interval check are separate promises - "also check
+ * every night at midnight" is not the same as "check every 30 minutes" - so the
+ * poller sleeps for whichever comes first.
+ */
+static int secs_until_daily(int hour)
+{
+    time_t    now = time(NULL);
+    struct tm tm;
+
+    if (hour < 0 || hour > 23)
+        return -1;
+    localtime_r(&now, &tm);
+
+    {
+        int now_sec = tm.tm_hour * 3600 + tm.tm_min * 60 + tm.tm_sec;
+        int target = hour * 3600;
+        int delta = target - now_sec;
+
+        if (delta <= 0)
+            delta += 86400;
+        return delta;
+    }
+}
+
 static void *checker_main(void *arg)
 {
     SLH_UNUSED(arg);
@@ -257,12 +309,23 @@ static void *checker_main(void *arg)
     for (;;) {
         struct timespec deadline;
         int wait_sec;
+        int daily_hour;
 
         version_check_now();
 
         pthread_mutex_lock(&g_lock);
         wait_sec = g_interval_sec;
+        daily_hour = g_daily_hour;
         pthread_mutex_unlock(&g_lock);
+
+        if (daily_hour >= 0) {
+            int until_daily = secs_until_daily(daily_hour);
+
+            if (until_daily > 0 && until_daily < wait_sec)
+                wait_sec = until_daily;
+        }
+        if (wait_sec < 1)
+            wait_sec = 1;
 
         clock_gettime(CLOCK_REALTIME, &deadline);
         deadline.tv_sec += wait_sec;
@@ -285,6 +348,7 @@ void version_checker_start(const config_t *cfg)
     pthread_mutex_lock(&g_lock);
     g_stop = 0;
     g_interval_sec = cfg->update_interval_sec;
+    g_daily_hour = cfg->update_daily_hour;
     slh_strlcpy(g_manifest, cfg->update_manifest, sizeof(g_manifest));
     slh_strlcpy(g_state.source, cfg->update_manifest, sizeof(g_state.source));
     g_state.enabled = cfg->update_enabled && cfg->update_manifest[0] != '\0';
@@ -303,8 +367,12 @@ void version_checker_start(const config_t *cfg)
         return;
     }
     g_thread_running = 1;
-    LOG_INFO("update checker started (manifest=%s, interval=%ds)",
-             cfg->update_manifest, cfg->update_interval_sec);
+    LOG_INFO("update checker started (manifest=%s, interval=%ds, daily=%s)",
+             cfg->update_manifest, cfg->update_interval_sec,
+             cfg->update_daily_hour >= 0 ? "yes" : "off");
+    if (cfg->update_daily_hour >= 0)
+        LOG_INFO("update: next daily check in %d s (at %02d:00 local)",
+                 secs_until_daily(cfg->update_daily_hour), cfg->update_daily_hour);
 }
 
 void version_checker_stop(void)
@@ -343,6 +411,10 @@ void version_to_json(strbuf_t *sb, const version_state_t *st, const config_t *cf
     json_add_str(sb, "manifest", st->source[0] ? st->source : NULL, &first);
     json_add_str(sb, "checked_at",
                  st->checked_at[0] ? st->checked_at : NULL, &first);
+    json_add_int(sb, "checked_ts", st->checked_ts, &first);
+    json_add_int(sb, "next_check_at", st->next_check_at, &first);
+    json_add_int(sb, "daily_hour", st->daily_hour, &first);
+    json_add_int(sb, "interval_sec", g_interval_sec, &first);
     json_add_str(sb, "last_error",
                  st->last_error[0] ? st->last_error : NULL, &first);
     json_add_str(sb, "name", "Slhbond-Monitor", &first);

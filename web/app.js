@@ -38,6 +38,7 @@
   var el = {
     statusLed: $('statusLed'), statusText: $('statusText'),
     versionText: $('versionText'), updateBtn: $('updateBtn'),
+    checkBtn: $('checkBtn'), checkLine: $('checkLine'),
     updateVer: $('updateVersion'), refreshHint: $('refreshHint'),
     btnRefresh: $('btnRefresh'), btnCpuRefresh: $('btnCpuRefresh'),
     btnCopy: $('btnCopy'), logoLed: $('logoLed'),
@@ -874,6 +875,7 @@
 
     var version = (payload && payload.version) || {};
     if (version.current) el.versionText.textContent = 'v' + version.current;
+    renderCheckLine(version);
     renderUpdateButton(version, payload.update);
 
     if (typeof payload.poll_interval_ms === 'number' && payload.poll_interval_ms > 0) {
@@ -1074,6 +1076,84 @@
     try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
     document.body.removeChild(area);
     return ok;
+  }
+
+  /* ================================================================== */
+  /* 检查版本                                                             */
+  /* ================================================================== */
+
+  var checking = false;
+
+  /** 两行：上次/下次 一行，每日定时一行 —— 侧栏太窄，挤一行会断在词中间 */
+  function renderCheckLine(version) {
+    if (!version || !version.checked_ts) {
+      el.checkLine.textContent = version && version.update_check_enabled
+        ? '尚未检查'
+        : '未启用更新检查';
+      return;
+    }
+
+    var now = Math.floor(Date.now() / 1000);
+    var next = version.next_check_at || 0;
+    var clock = formatClock(version.checked_ts).slice(11, 16);
+    var line1;
+    var line2 = '';
+
+    if (version.last_check_ok === false && version.last_error) {
+      /* 检查过但失败：原因直接写在这里，不必点开控制台 */
+      line1 = '上次 ' + clock + ' 失败';
+      line2 = version.last_error.slice(0, 26);
+    } else {
+      line1 = '上次 ' + clock;
+      if (next > now)
+        line1 += ' · 下次 ' + formatAge(next - now) + '后';
+    }
+
+    if (typeof version.daily_hour === 'number' && version.daily_hour >= 0)
+      line2 = '每天 ' + pad2(version.daily_hour) + ':00 自动检查';
+
+    el.checkLine.innerHTML = '<span>' + esc(line1) + '</span>'
+      + (line2 ? '<span>' + esc(line2) + '</span>' : '');
+  }
+
+  function runCheck() {
+    if (checking) return;
+    checking = true;
+
+    var span = el.checkBtn.querySelector('span');
+    var label = span.textContent;
+
+    span.textContent = '检查中…';
+    el.checkBtn.disabled = true;
+    el.checkBtn.dataset.state = 'busy';
+
+    fetch('/api/v1/update/check', { method: 'POST' })
+      .then(function (r) {
+        return r.json().then(function (d) { return { ok: r.ok, body: d }; });
+      })
+      .then(function (res) {
+        var d = res.body || {};
+
+        if (!res.ok || d.checked === false) {
+          toast('检查失败：'
+            + (d.error || d.last_error || d.message || '未知原因'));
+        } else if (d.can_apply) {
+          toast('发现新版本 v' + (d.version || '') + '，点下面的「更新可用」即可自动更新');
+        } else {
+          toast('已是最新版本 v' + (d.version || ''));
+        }
+        /* 立刻刷新一次，让「更新可用」按钮和版本号同步 */
+        fetchStatus(true);
+      })
+      .catch(function () {
+        toast('检查失败：请求超时或网络不可达');
+      })
+      .then(function () {
+        checking = false;
+        el.checkBtn.disabled = false;
+        el.checkBtn.dataset.state = '';
+        span.textContent = label;
+      });
   }
 
   /* ================================================================== */
@@ -2001,6 +2081,7 @@
     el.btnCpuRefresh.addEventListener('click', function () { refreshNow(el.btnCpuRefresh); });
     el.btnCopy.addEventListener('click', copySummary);
     el.updateBtn.addEventListener('click', openUpdate);
+    el.checkBtn.addEventListener('click', runCheck);
 
     window.addEventListener('resize', function () {
       Object.keys(fields).forEach(function (k) { markTruncated(fields[k]); });

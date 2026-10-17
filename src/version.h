@@ -28,6 +28,9 @@ typedef struct {
     char notes[512];
     char source[512];        /* manifest path or URL that was polled       */
     char checked_at[48];     /* RFC3339 local time of the last attempt     */
+    int64_t checked_ts;      /* same instant, epoch seconds                */
+    int64_t next_check_at;   /* when the poller will look again            */
+    int  daily_hour;         /* 0-23 = nightly check, -1 = off             */
     char last_error[192];
 } version_state_t;
 

@@ -252,9 +252,80 @@ body {
   50%      { opacity: .55; }
 }
 
+/* 版本号下面：手动检查新版本 */
+.check-btn {
+  margin-top: 7px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px 5px 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background .18s ease, border-color .18s ease,
+              color .18s ease, transform .18s ease;
+}
+
+.check-btn svg {
+  width: 12.5px;
+  height: 12.5px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.check-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+
+.check-btn:active { transform: translateY(1px); }
+
+.check-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.check-btn:disabled {
+  cursor: progress;
+  opacity: .75;
+}
+
+/* 检查中让图标转起来，比只把文字换成「检查中…」更直观 */
+.check-btn[data-state="busy"] svg {
+  animation: spin 1.1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* 上次检查 / 下次检查时间 */
+.check-line {
+  margin: 6px 0 0;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--muted-dim);
+  font-family: var(--mono);
+  max-width: 210px;
+}
+
+.check-line span { display: block; }
+
+/* 第二行（每日定时）稍暗一点，主次分明 */
+.check-line span + span { opacity: .78; }
+
 /* 「更新可用」蓝色提示按钮 —— 无更新时整块隐藏 */
 .update-btn {
-  margin-top: 16px;
+  margin-top: 12px;
   display: inline-flex;
   align-items: center;
   gap: 7px;
