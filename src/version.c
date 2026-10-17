@@ -14,6 +14,7 @@
 #include "httpclient.h"
 #include "json.h"
 #include "log.h"
+#include "mirror.h"
 
 #define MANIFEST_MAX 8192
 
@@ -95,6 +96,12 @@ static int              g_stop;
 static char             g_manifest[512];
 static int              g_interval_sec = SLH_UPDATE_SEC_DEFAULT;
 static int              g_daily_hour = 0;
+/* 加速节点：前缀列表 + 是否允许清单走代理 */
+static char             g_mirrors[512];
+static int              g_via_mirror = 1;
+/* 上一次拉清单用的是哪条路：-1 直连，>=1 是 cands 下标 */
+static int              g_used_mirror_idx = -1;
+static int              g_used_mirror_ms;
 
 void version_state_init(void)
 {
@@ -118,25 +125,86 @@ void version_state_get(version_state_t *out)
 /* Manifest polling                                                    */
 /* ------------------------------------------------------------------ */
 
+/* 清单只有几百字节，但国内直连 github.com 时「连接」阶段就可能要 20 秒以上，
+ * 所以给足时间；它是后台任务，慢一点完全可以接受。 */
+#define MANIFEST_TIMEOUT_MS      25000
+/* 探测加速节点时单个节点的上限，以及「够快就不再测」的阈值 */
+#define MIRROR_PROBE_MS          6000
+#define MIRROR_GOOD_ENOUGH_MS    1500
+
+/*
+ * 拉清单。先直连官方，失败再看配置允不允许走加速节点。
+ * 走代理时把用到的节点记下来，接口和日志都能说明白。
+ */
 static int read_manifest(const char *source, char *buf, size_t buf_size, char *err,
                          size_t err_size)
 {
-    if (slh_starts_with(source, "http://") || slh_starts_with(source, "https://")) {
-        /*
-         * http_fetch handles https by delegating to curl/wget; GitHub only
-         * serves over https and this project deliberately carries no TLS
-         * stack of its own.
-         */
-        if (http_fetch(source, buf, buf_size, 8000, err, err_size) != 0)
+    if (!slh_starts_with(source, "http://") &&
+        !slh_starts_with(source, "https://")) {
+        if (slh_read_file(source, buf, buf_size) < 0) {
+            snprintf(err, err_size, "无法读取 %.128s", source);
             return -1;
+        }
+        g_used_mirror_idx = -1;
+        g_used_mirror_ms = 0;
         return 0;
     }
 
-    if (slh_read_file(source, buf, buf_size) < 0) {
-        snprintf(err, err_size, "无法读取 %.128s", source);
-        return -1;
+    /* 1) 直连官方 —— 清单是权威信息，能直连就绝不走第三方 */
+    if (http_fetch(source, buf, buf_size, MANIFEST_TIMEOUT_MS, err, err_size) == 0) {
+        g_used_mirror_idx = -1;
+        g_used_mirror_ms = 0;
+        return 0;
     }
-    return 0;
+
+    {
+        char direct_err[192];
+
+        slh_strlcpy(direct_err, err, sizeof(direct_err));
+
+        if (!g_via_mirror || g_mirrors[0] == '\0') {
+            snprintf(err, err_size, "直连失败（%.140s），且未启用加速节点",
+                     direct_err);
+            return -1;
+        }
+
+        /* 2) 退到加速节点：逐个探延迟，取第一个能拉到完整清单的 */
+        {
+            mirror_t cands[SLH_MAX_MIRRORS];
+            int      n = mirror_parse(g_mirrors, cands, SLH_MAX_MIRRORS);
+            int      i;
+
+            for (i = 1; i < n; i++) {   /* 0 是直连，已经试过了 */
+                char url[640];
+                int  ms;
+
+                snprintf(url, sizeof(url), "%s%s", cands[i].prefix, source);
+                ms = mirror_probe(url, MIRROR_PROBE_MS);
+                if (ms < 0)
+                    continue;
+
+                err[0] = '\0';
+                if (http_fetch(url, buf, buf_size, MANIFEST_TIMEOUT_MS,
+                               err, err_size) == 0) {
+                    g_used_mirror_idx = i;
+                    g_used_mirror_ms = ms;
+                    LOG_WARN("update: 直连 GitHub 失败，清单取自加速节点 %s（%d ms）；"
+                             "包体仍按官方清单里的 SHA-256 校验",
+                             cands[i].prefix, ms);
+                    return 0;
+                }
+            }
+        }
+    }
+
+    /* 走到这里说明直连和所有节点都没成：先留一份直连的错误再覆盖 err */
+    {
+        char why[160];
+
+        slh_strlcpy(why, err, sizeof(why));
+        snprintf(err, err_size, "直连与所有加速节点都失败（直连：%.120s）", why);
+    }
+    return -1;
 }
 
 /**
@@ -413,6 +481,8 @@ void version_checker_start(const config_t *cfg)
     g_stop = 0;
     g_interval_sec = cfg->update_interval_sec;
     g_daily_hour = cfg->update_daily_hour;
+    slh_strlcpy(g_mirrors, cfg->update_mirrors, sizeof(g_mirrors));
+    g_via_mirror = cfg->update_manifest_via_mirror;
     slh_strlcpy(g_manifest, cfg->update_manifest, sizeof(g_manifest));
     slh_strlcpy(g_state.source, cfg->update_manifest, sizeof(g_state.source));
     g_state.enabled = cfg->update_enabled && cfg->update_manifest[0] != '\0';
@@ -489,6 +559,22 @@ void version_to_json(strbuf_t *sb, const version_state_t *st, const config_t *cf
     json_add_int(sb, "next_check_at", st->next_check_at, &first);
     json_add_int(sb, "daily_hour", st->daily_hour, &first);
     json_add_int(sb, "interval_sec", g_interval_sec, &first);
+    /*
+     * 清单是从哪条路拉到的：直连还是某个加速节点。
+     * 面板上要能看出「这次数据不是官方直连来的」。
+     */
+    if (g_used_mirror_idx >= 0) {
+        mirror_t cands[SLH_MAX_MIRRORS];
+        int      n = mirror_parse(g_mirrors, cands, SLH_MAX_MIRRORS);
+
+        json_add_bool(sb, "manifest_via_mirror", 1, &first);
+        if (g_used_mirror_idx < n)
+            json_add_str(sb, "manifest_mirror",
+                         cands[g_used_mirror_idx].prefix, &first);
+        json_add_int(sb, "manifest_mirror_ms", g_used_mirror_ms, &first);
+    } else {
+        json_add_bool(sb, "manifest_via_mirror", 0, &first);
+    }
     json_add_str(sb, "last_error",
                  st->last_error[0] ? st->last_error : NULL, &first);
     json_add_str(sb, "name", "Slhbond-Monitor", &first);

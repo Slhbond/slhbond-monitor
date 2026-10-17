@@ -40,6 +40,11 @@
     versionText: $('versionText'), updateBtn: $('updateBtn'),
     checkBtn: $('checkBtn'), checkLine: $('checkLine'),
     themeBtn: $('themeBtn'),
+    /* 更新确认弹层 */
+    updateConfirm: $('updateConfirm'), confirmFrom: $('confirmFrom'),
+    confirmTo: $('confirmTo'), confirmNotes: $('confirmNotes'),
+    confirmGo: $('confirmGo'), confirmCancel: $('confirmCancel'),
+    updateConfirmClose: $('updateConfirmClose'),
     updateVer: $('updateVersion'), refreshHint: $('refreshHint'),
     btnRefresh: $('btnRefresh'), btnCpuRefresh: $('btnCpuRefresh'),
     btnCopy: $('btnCopy'), logoLed: $('logoLed'),
@@ -882,7 +887,10 @@
     if (typeof payload.poll_interval_ms === 'number' && payload.poll_interval_ms > 0) {
       var next = payload.poll_interval_ms;
       if (next !== state.pollMs) { state.pollMs = next; restartPolling(); }
-      el.refreshHint.textContent = '每 ' + Math.round(next / 1000) + ' 秒自动刷新';
+      /* 卡片上那行「每 N 秒自动刷新」的提示已经去掉（用户要求界面更干净），
+         元素可能不存在，这里顺手做个保护。 */
+      if (el.refreshHint)
+        el.refreshHint.textContent = '每 ' + Math.round(next / 1000) + ' 秒自动刷新';
     }
   }
 
@@ -1224,6 +1232,32 @@
       });
   }
 
+  /* ---------------------------------------------------------- 更新确认 */
+
+  /** 弹确认框：把「当前 → 新版本」、发布说明、会发生什么讲清楚再让用户点。 */
+  function showUpdateConfirm(v) {
+    if (!el.updateConfirm) {
+      /* 兜底：万一标记没找着（旧缓存），不要让用户点了没反应 */
+      startUpdate();
+      return;
+    }
+
+    el.confirmFrom.textContent = 'v' + (v.current || '?');
+    el.confirmTo.textContent = 'v' + (v.latest || '?');
+    el.confirmNotes.textContent = v.notes
+      ? v.notes
+      : '这次发布没有提供说明。';
+
+    openPanel(el.updateConfirm);
+
+    /* 焦点放在「取消」上：避免顺手一个回车就把线上机器更新掉 */
+    if (el.confirmCancel) el.confirmCancel.focus();
+  }
+
+  function hideUpdateConfirm() {
+    closePanel(el.updateConfirm);
+  }
+
   function openUpdate() {
     var v = (state.payload && state.payload.version) || {};
     var u = (state.payload && state.payload.update) || {};
@@ -1248,7 +1282,9 @@
       toast('系统里没有 curl 或 wget，无法从 https 下载更新包');
       return;
     }
-    startUpdate();
+
+    /* 到这里才允许真正开始下载 —— 而且必须先过确认这一关 */
+    showUpdateConfirm(v);
   }
 
   /* ------------------------------------------------------------ 启动 */
@@ -1351,7 +1387,8 @@
 
   function anyPanelOpen() {
     return (el.alertPanel && !el.alertPanel.classList.contains('hidden'))
-        || (el.eventPanel && !el.eventPanel.classList.contains('hidden'));
+        || (el.eventPanel && !el.eventPanel.classList.contains('hidden'))
+        || (el.updateConfirm && !el.updateConfirm.classList.contains('hidden'));
   }
 
   /* ------------------------------------------------------------ 警告面板 */
@@ -2056,6 +2093,7 @@
         if (anyPanelOpen()) {
           closePanel(el.alertPanel);
           closePanel(el.eventPanel);
+          closePanel(el.updateConfirm);
         } else if (trace.active && !el.tracePicker.classList.contains('hidden')) {
           togglePicker(false);
         } else if (trace.active) {
@@ -2142,6 +2180,20 @@
     el.btnCopy.addEventListener('click', copySummary);
     el.updateBtn.addEventListener('click', openUpdate);
     el.checkBtn.addEventListener('click', runCheck);
+
+    /* 更新确认：三个出口（右上角 ×、取消、点遮罩）都只是关掉，
+       只有「确认更新」才真的开始下载。 */
+    if (el.updateConfirm) {
+      el.updateConfirmClose.addEventListener('click', hideUpdateConfirm);
+      el.confirmCancel.addEventListener('click', hideUpdateConfirm);
+      el.updateConfirm.addEventListener('click', function (ev) {
+        if (ev.target === el.updateConfirm) hideUpdateConfirm();
+      });
+      el.confirmGo.addEventListener('click', function () {
+        hideUpdateConfirm();
+        startUpdate();
+      });
+    }
 
     initTheme();
 

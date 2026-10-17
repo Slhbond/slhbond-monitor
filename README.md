@@ -549,6 +549,11 @@ update_check = true     # 关掉后前端不出现「更新可用」按钮
 update_manifest = https://github.com/Slhbond/slhbond-monitor/releases/latest/download/update.json
 update_daily_hour = 0   # 每天 0 点自动检查一次（-1 = 关闭）
 update_interval = 0     # 0 = 不按间隔轮询；想更及时可设 1800
+
+# 更新加速节点（第三方 GitHub 代理）：下载前逐个测延迟，自动用最快的一个。
+# 留空只用直连。实测这台设备直连 github.com 连接要 19～36 秒，这几个只要 1～2 秒。
+update_mirrors = https://gh-proxy.com/,https://ghfast.top/,https://ghproxy.net/,https://hk.gh-proxy.com/
+update_manifest_via_mirror = true   # 直连拉清单失败时允许退到加速节点
 ```
 
 重启服务：

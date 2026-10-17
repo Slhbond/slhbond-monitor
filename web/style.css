@@ -28,6 +28,11 @@
   /* 进度条/环形图的空槽。白底上要比普通叠加更实一点才看得见 */
   --track:         rgba(255, 255, 255, 0.06);
   --track-line:    rgba(255, 255, 255, 0.035);
+  /* 悬浮面板（溯源时间轴、日期选择）与模态遮罩；带透明度，配合 backdrop-filter */
+  --float:         rgba(21, 26, 34, 0.94);
+  --scrim:         rgba(5, 7, 10, 0.72);
+  /* 滑块拖柄：两种主题都用白色，靠蓝色描边区分 */
+  --knob:          #ffffff;
 
   /* ---- 描边 ---- */
   --border:        rgba(255, 255, 255, 0.07);
@@ -79,6 +84,8 @@
   --shade:         30, 41, 59;
   --track:         rgba(15, 23, 42, 0.11);
   --track-line:    rgba(15, 23, 42, 0.07);
+  --float:         rgba(255, 255, 255, 0.96);
+  --scrim:         rgba(15, 23, 42, 0.32);
 
   --border:        rgba(15, 23, 42, 0.11);
   --border-strong: rgba(15, 23, 42, 0.20);
@@ -110,6 +117,7 @@
 
 [data-theme="light"] .tooltip,
 [data-theme="light"] .trace-picker,
+[data-theme="light"] .trace-bar,
 [data-theme="light"] .alert-panel {
   box-shadow: 0 12px 32px rgba(15, 23, 42, .16);
 }
@@ -1522,7 +1530,7 @@ html.theme-switching * {
   align-items: center;
   justify-content: center;
   padding: 32px 20px;
-  background: rgba(5, 7, 10, .72);
+  background: var(--scrim);
   backdrop-filter: blur(3px);
 }
 
@@ -1536,6 +1544,67 @@ html.theme-switching * {
   background: linear-gradient(168deg, var(--card-2) 0%, var(--card) 60%, var(--card-3) 100%);
   box-shadow: 0 30px 80px rgba(var(--shade), .7);
   overflow: hidden;
+}
+
+/* -------------------------------------------------- 更新确认弹层 */
+
+.panel-confirm { width: min(460px, 100%); }
+
+.confirm-ver {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0 0 10px;
+  font-family: var(--mono);
+  font-size: 17px;
+  color: var(--muted);
+}
+
+.confirm-ver b {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.confirm-ver .confirm-to { color: var(--accent); }
+
+.confirm-arrow {
+  color: var(--muted-dim);
+  font-size: 15px;
+}
+
+.confirm-notes {
+  margin: 0 0 14px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: rgba(var(--overlay), .04);
+  border-left: 3px solid var(--accent-line);
+  font-size: 13px;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.confirm-steps {
+  margin: 0 0 14px;
+  padding-left: 20px;
+  font-size: 13px;
+  line-height: 1.75;
+  color: var(--muted);
+}
+
+.confirm-steps li { margin-bottom: 2px; }
+
+.confirm-steps b { color: var(--text); font-weight: 600; }
+
+.confirm-warn {
+  margin: 0 0 18px;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
 .panel-head {
@@ -1739,7 +1808,7 @@ html.theme-switching * {
   padding: 12px 16px;
   border: 1px solid var(--accent-line);
   border-radius: var(--radius-pill);
-  background: rgba(21, 26, 34, .94);
+  background: var(--float);
   backdrop-filter: blur(8px);
   box-shadow: 0 20px 50px rgba(var(--shade), .6);
 }
@@ -1814,7 +1883,7 @@ html.theme-switching * {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: var(--text);
+  background: var(--knob);
   border: 3px solid var(--accent);
   cursor: grab;
 }
@@ -1823,7 +1892,7 @@ html.theme-switching * {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: var(--text);
+  background: var(--knob);
   border: 3px solid var(--accent);
   cursor: grab;
 }
@@ -1893,7 +1962,7 @@ body.tracing .trace-only-note { display: block; }
   padding: 16px;
   border: 1px solid var(--accent-line);
   border-radius: var(--radius-card);
-  background: rgba(24, 29, 38, .97);
+  background: var(--float);
   backdrop-filter: blur(10px);
   box-shadow: 0 24px 60px rgba(var(--shade), .66);
 }

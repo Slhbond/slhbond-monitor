@@ -18,6 +18,7 @@
 
 #include "httpclient.h"
 #include "log.h"
+#include "mirror.h"
 #include "sha256.h"
 #include "util.h"
 #include "version.h"
@@ -35,6 +36,8 @@ static char             g_dir[640];       /* <state>/update               */
 static char             g_pkg[700];       /* <state>/update/<ver>.tar.gz   */
 static char             g_staged[700];    /* <state>/update/staged         */
 static char             g_ready[700];     /* <state>/update/ready          */
+/* 加速节点前缀列表（来自配置），下载前按延迟择优 */
+static char             g_mirrors[512];
 
 /* ------------------------------------------------------------------ */
 /* Small filesystem helpers                                            */
@@ -164,17 +167,52 @@ static void *worker_main(void *arg)
     char            err[256];
     char            digest[SLH_SHA256_HEX_LEN];
     char            tool[512];
+    char            chosen_url[640];
+    char            mirror_prefix[96];
     int             rc;
 
     SLH_UNUSED(arg);
 
     version_state_get(&vs);
+    chosen_url[0] = '\0';
+    mirror_prefix[0] = '\0';
 
     /* --- 1. download -------------------------------------------------- */
     set_status(UPD_DOWNLOADING, "正在下载 %s", vs.latest);
-    LOG_INFO("update: downloading %s from %s", vs.latest, vs.release_url);
 
-    if (http_fetch_file(vs.release_url, g_pkg, UPDATE_TIMEOUT_MS,
+    /*
+     * 先测速再下载：直连 github.com 在这台机器上连接就要 19～36 秒，
+     * 2.4 MB 的包经常直接超时。把「直连 + 各加速节点」都探一遍，
+     * 挑最快的那个。节点只是搬运工，内容仍要过下面的 SHA-256 校验。
+     */
+    {
+        char     dl_url[640];
+        mirror_t cands[SLH_MAX_MIRRORS];
+        int      n = mirror_parse(g_mirrors, cands, SLH_MAX_MIRRORS);
+        int      lat = -1;
+        int      idx = -1;
+
+        if (mirror_pick(vs.release_url, cands, n,
+                        8000, 2000,
+                        dl_url, sizeof(dl_url), &lat, &idx) == 0) {
+            slh_strlcpy(chosen_url, dl_url, sizeof(chosen_url));
+            mirror_prefix[0] = '\0';
+            if (idx >= 0 && idx < n)
+                slh_strlcpy(mirror_prefix, cands[idx].prefix,
+                            sizeof(mirror_prefix));
+            LOG_INFO("update: 选中节点 %s（%d ms），开始下载 %s",
+                     mirror_prefix[0] ? mirror_prefix : "直连",
+                     lat, vs.latest);
+            set_status(UPD_DOWNLOADING, "正在下载 %s（%s，%d ms）",
+                       vs.latest, mirror_prefix[0] ? mirror_prefix : "直连", lat);
+        } else {
+            /* 一个都不通：仍用原始地址试一次，让错误信息更直接 */
+            slh_strlcpy(chosen_url, vs.release_url, sizeof(chosen_url));
+            LOG_WARN("update: 所有节点都不通，直接尝试官方地址");
+        }
+    }
+
+    if (http_fetch_file(chosen_url, g_pkg, UPDATE_TIMEOUT_MS,
                         err, sizeof(err)) != 0)
         return (void *)(intptr_t)fail("下载失败：%s", err);
 
@@ -310,6 +348,7 @@ int updater_start(const config_t *cfg)
     snprintf(g_staged, sizeof(g_staged), "%s/staged", g_dir);
     snprintf(g_ready, sizeof(g_ready), "%s/ready", g_dir);
     g_pkg[0] = '\0';
+    slh_strlcpy(g_mirrors, cfg->update_mirrors, sizeof(g_mirrors));
 
     if (mkdir_p(g_dir) != 0)
         LOG_WARN("update: cannot create %s: %s", g_dir, strerror(errno));

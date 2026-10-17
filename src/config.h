@@ -82,6 +82,18 @@ typedef struct {
      * every night" are different promises and users ask for both.
      */
     int  update_daily_hour;
+    /*
+     * 更新加速节点：第三方 GitHub 代理前缀，逗号分隔。
+     * 下载发布包时按延迟自动挑最快的；「直连」也算一个候选。
+     * 信任说明见 mirror.h。
+     */
+    char update_mirrors[512];
+    /*
+     * 清单是否也允许走加速节点（仅在直连失败时）。
+     * 走代理时会额外要求清单里的下载地址必须指向同一个仓库，
+     * 所以代理最多能让更新失败，没法把包掉包。
+     */
+    int  update_manifest_via_mirror;
 
     /* --- per-second history ---------------------------------------- */
     int history_enabled;

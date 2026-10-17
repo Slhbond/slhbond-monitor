@@ -21,6 +21,13 @@
 #include "util.h"
 
 #define MAX_BODY (256u * 1024u)
+
+/*
+ * curl/wget 自己带 --max-time，外面 slh_run_command 还有一层看门狗。
+ * 两层的超时如果设成一样，慢一点的请求会被外层先杀掉（退出码 -1），
+ * 报出来就成了「下载失败」，其实再等一秒就成功了。外壳统一多留 5 秒。
+ */
+#define WRAPPER_GRACE_MS 5000
 #define MAX_HEADER (32u * 1024u)
 
 typedef struct {
@@ -500,11 +507,13 @@ int http_fetch(const char *url, char *out, size_t out_size, int timeout_ms,
         if (tool_is_wget(tool)) {
             const char *argv[] = { tool, "-q", "-T", secs, "-O", "-", url, NULL };
 
-            rc = slh_run_command(argv, out, out_size, timeout_ms);
+            rc = slh_run_command(argv, out, out_size,
+                                timeout_ms + WRAPPER_GRACE_MS);
         } else {
             const char *argv[] = { tool, "-fsSL", "--max-time", secs, url, NULL };
 
-            rc = slh_run_command(argv, out, out_size, timeout_ms);
+            rc = slh_run_command(argv, out, out_size,
+                                timeout_ms + WRAPPER_GRACE_MS);
         }
         if (rc != 0) {
             snprintf(err, err_size, "下载失败（%s 退出码 %d）",
@@ -556,12 +565,12 @@ int http_fetch_file(const char *url, const char *path, int timeout_ms,
     if (tool_is_wget(tool)) {
         const char *argv[] = { tool, "-q", "-T", secs, "-O", path, url, NULL };
 
-        rc = slh_run_command(argv, NULL, 0, timeout_ms);
+        rc = slh_run_command(argv, NULL, 0, timeout_ms + WRAPPER_GRACE_MS);
     } else {
         const char *argv[] = { tool, "-fsSL", "--max-time", secs,
                                "-o", path, url, NULL };
 
-        rc = slh_run_command(argv, NULL, 0, timeout_ms);
+        rc = slh_run_command(argv, NULL, 0, timeout_ms + WRAPPER_GRACE_MS);
     }
 
     if (rc != 0) {

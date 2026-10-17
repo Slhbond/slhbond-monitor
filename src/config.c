@@ -32,6 +32,15 @@ void config_defaults(config_t *cfg)
                 sizeof(cfg->update_manifest));
     cfg->update_interval_sec = 0;        /* 默认不按间隔轮询，只每天 0 点查 */
     cfg->update_daily_hour = 0;          /* 每天 0 点自动检查一次 */
+    /*
+     * 默认加速节点：实测这台设备直连 github.com 要 19～36 秒、经常直接失败，
+     * 走这几个代理不到 2 秒。顺序无关紧要 —— 用之前都会测延迟挑最快的。
+     */
+    slh_strlcpy(cfg->update_mirrors,
+                "https://gh-proxy.com/,https://ghfast.top/,"
+                "https://ghproxy.net/,https://hk.gh-proxy.com/",
+                sizeof(cfg->update_mirrors));
+    cfg->update_manifest_via_mirror = 1;
 
     cfg->history_enabled = 1;
     cfg->history_hours = SLH_HISTORY_HOURS_DEFAULT;
@@ -183,6 +192,14 @@ static int apply_setting(config_t *cfg, const char *key, const char *value)
     }
     if (strcmp(key, "update_daily_hour") == 0) {
         cfg->update_daily_hour = atoi(value);
+        return 1;
+    }
+    if (strcmp(key, "update_mirrors") == 0) {
+        slh_strlcpy(cfg->update_mirrors, value, sizeof(cfg->update_mirrors));
+        return 1;
+    }
+    if (strcmp(key, "update_manifest_via_mirror") == 0) {
+        parse_bool(value, &cfg->update_manifest_via_mirror);
         return 1;
     }
 
