@@ -1,13 +1,15 @@
 # Slhbond-Monitor
 
 纯 C 写的轻量级 Linux 系统监控。单个可执行文件、只依赖 **libc + pthread**，
-自带一个暗色仪表盘网页：系统信息、CPU 总览、GPU、网络波形、NPU、
-以及每块硬盘一个方块的存储设备区。
+自带仪表盘网页（**深色 / 浅色两套主题可一键切换**）：系统信息、CPU 总览、GPU、
+网络波形、NPU、以及每块硬盘一个方块的存储设备区。
 
 **不绑定任何板子或发行版** —— 同一份源码在 x86_64 服务器、树莓派、
 RK3568 这类 ARM 板子上都能原生编译运行，各自识别出自己有的硬件。
 
-![仪表盘](docs/screenshot.png)
+![仪表盘（深色）](docs/screenshot.png)
+
+![仪表盘（浅色）](docs/screenshot-light.png)
 
 ---
 
@@ -44,6 +46,8 @@ RK3568 这类 ARM 板子上都能原生编译运行，各自识别出自己有�
   面板上直接显示每个指标距离记录还差多久。
 - **每秒溯源** —— 每秒硬件快照存本地，可拖时间轴回看任意一刻，一天约 3.6 MB。
 - **命令留痕** —— 记录用户执行的命令，删除类操作单独标红。
+- **深色 / 浅色主题** —— 右上角一键切换，选择记在浏览器本地；
+  两套配色都调过对比度，不是简单反色。
 - **开机自启** —— 部署脚本自动适配 systemd / OpenRC / SysV / cron。
 - **不编造数据** —— 拿不到的指标返回 `null` 并说明原因（GPU 负载计数器、
   未加载的 NPU 驱动、读不到的温度），而不是给一个恒定的假值。
@@ -542,8 +546,9 @@ alert_disk_temp_c = 55   # 硬盘温度（取最热的一块）
 alert_hold_sec = 10      # 连续超限多久才记录
 
 update_check = true     # 关掉后前端不出现「更新可用」按钮
-update_manifest = /opt/slhbond-monitor/update.json
-update_interval = 1800  # 版本检查间隔（秒）
+update_manifest = https://github.com/Slhbond/slhbond-monitor/releases/latest/download/update.json
+update_daily_hour = 0   # 每天 0 点自动检查一次（-1 = 关闭）
+update_interval = 0     # 0 = 不按间隔轮询；想更及时可设 1800
 ```
 
 重启服务：
@@ -568,8 +573,9 @@ sudo systemctl restart slhbond-monitor
 而是**自己下载、校验、安装并重启**：
 
 - **手动检查**：点「检查版本」，立刻问一次更新服务器。
-- **自动检查**：默认每天 `00:00` 再查一次，另外每 `update_interval`（默认 30 分钟）查一次，
-  两者取更早的那个。改 `update_daily_hour` 可以换时间，`-1` 关闭。
+- **自动检查**：默认**每天 `00:00` 查一次**，不按间隔反复轮询。
+  改 `update_daily_hour` 可以换时间，`-1` 关闭。
+  想更及时的话把 `update_interval` 设成 `1800`，两者取更早的那个。
 - **更新**：发现新版时出现蓝色「更新可用」，点它 → 下载 → 校验 → 暂存 →
   root 定时器在 5 分钟内自动安装并重启。
 
@@ -641,8 +647,8 @@ make dist          # 产出 dist/slhbond-monitor-1.21.tar.gz
 
 ```ini
 update_check = true
-update_manifest = https://raw.githubusercontent.com/你的用户名/slhbond-monitor/main/update.json
-update_interval = 1800      # 每 30 分钟检查一次
+update_manifest = https://github.com/你的用户名/slhbond-monitor/releases/latest/download/update.json
+update_daily_hour = 0       # 每天 0 点自动查；想更频繁就设 update_interval = 1800
 ```
 
 ```bash

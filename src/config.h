@@ -68,6 +68,12 @@ typedef struct {
     /* --- update check ---------------------------------------------- */
     int  update_enabled;
     char update_manifest[512];   /* local path or http:// URL, "" = off */
+    /*
+     * 按固定间隔自动检查的秒数，0 表示关闭（只靠每日定时检查或手动按钮）。
+     *
+     * 默认关闭：用户要的是「每天 0 点查一次」，而不是不停地轮询上游。
+     * 想更及时就设成 1800 之类，两种检查取更早的那个。
+     */
     int  update_interval_sec;
     /*
      * Hour of the day (0-23) for the daily automatic check, -1 to disable.

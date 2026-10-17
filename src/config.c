@@ -30,7 +30,7 @@ void config_defaults(config_t *cfg)
     cfg->update_enabled = 1;
     slh_strlcpy(cfg->update_manifest, SLH_MANIFEST_DEFAULT,
                 sizeof(cfg->update_manifest));
-    cfg->update_interval_sec = SLH_UPDATE_SEC_DEFAULT;
+    cfg->update_interval_sec = 0;        /* 默认不按间隔轮询，只每天 0 点查 */
     cfg->update_daily_hour = 0;          /* 每天 0 点自动检查一次 */
 
     cfg->history_enabled = 1;
@@ -65,7 +65,8 @@ void config_normalise(config_t *cfg)
     cfg->worker_threads = clamp_int(cfg->worker_threads, 1, 64);
     cfg->poll_ms = clamp_int(cfg->poll_ms, 1000, 600000);
     cfg->cache_ms = clamp_int(cfg->cache_ms, 0, 60000);
-    cfg->update_interval_sec = clamp_int(cfg->update_interval_sec, 60, 86400);
+    /* 0 = 关闭按间隔检查，只靠每日定时检查；负数一律当 0。 */
+    cfg->update_interval_sec = clamp_int(cfg->update_interval_sec, 0, 86400);
     /* -1 keeps the daily check off; anything else is pinned to 0..23. */
     if (cfg->update_daily_hour >= 24)
         cfg->update_daily_hour = cfg->update_daily_hour % 24;

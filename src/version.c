@@ -179,7 +179,7 @@ static int secs_until_daily(int hour);
 static void note_check_locked(void)
 {
     int64_t now = slh_now_sec();
-    int64_t next = now + g_interval_sec;
+    int64_t next = (g_interval_sec > 0) ? now + g_interval_sec : 0;
     int     d;
 
     slh_rfc3339_local((time_t)now, g_state.checked_at,
@@ -188,8 +188,10 @@ static void note_check_locked(void)
     g_state.daily_hour = g_daily_hour;
 
     d = secs_until_daily(g_daily_hour);
-    if (d > 0 && now + d < next)
+    if (d > 0 && (next == 0 || now + d < next))
         next = now + d;
+
+    /* 两种自动检查都关了：没有「下次」，给 0 让界面显示「仅手动」。 */
     g_state.next_check_at = next;
 }
 
@@ -364,16 +366,19 @@ static void *checker_main(void *arg)
         }
 
         pthread_mutex_lock(&g_lock);
-        wait_sec = g_interval_sec;
+        wait_sec = g_interval_sec;      /* 0 = 关掉了按间隔检查 */
         daily_hour = g_daily_hour;
         pthread_mutex_unlock(&g_lock);
 
+        /* 两种自动检查取更早的那个；0 表示那一种没开 */
         if (daily_hour >= 0) {
             int until_daily = secs_until_daily(daily_hour);
 
-            if (until_daily > 0 && until_daily < wait_sec)
+            if (until_daily > 0 && (wait_sec <= 0 || until_daily < wait_sec))
                 wait_sec = until_daily;
         }
+        if (wait_sec <= 0)
+            wait_sec = 3600;            /* 都关了；线程本不该走到这里 */
         if (wait_sec < AUTO_CHECK_MIN_GAP)
             wait_sec = AUTO_CHECK_MIN_GAP;
 
@@ -421,14 +426,24 @@ void version_checker_start(const config_t *cfg)
         }
     }
 
+    /*
+     * 两种自动检查都关掉时不起线程：没有定时任务可跑，
+     * 面板上的「检查版本」按钮仍然可以随时手动触发。
+     */
+    if (cfg->update_interval_sec <= 0 && cfg->update_daily_hour < 0) {
+        LOG_INFO("update: 定时检查已全部关闭，只能用面板上的「检查版本」按钮");
+        return;
+    }
+
     if (pthread_create(&g_thread, NULL, checker_main, NULL) != 0) {
         LOG_WARN("could not start the update checker thread");
         return;
     }
     g_thread_running = 1;
-    LOG_INFO("update checker started (manifest=%s, interval=%ds, daily=%s)",
-             cfg->update_manifest, cfg->update_interval_sec,
-             cfg->update_daily_hour >= 0 ? "yes" : "off");
+    LOG_INFO("update checker started (manifest=%s, interval=%s, daily=%s)",
+             cfg->update_manifest,
+             cfg->update_interval_sec > 0 ? "on" : "off",
+             cfg->update_daily_hour >= 0 ? "on" : "off");
     if (cfg->update_daily_hour >= 0)
         LOG_INFO("update: next daily check in %d s (at %02d:00 local)",
                  secs_until_daily(cfg->update_daily_hour), cfg->update_daily_hour);

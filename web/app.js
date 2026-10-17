@@ -39,6 +39,7 @@
     statusLed: $('statusLed'), statusText: $('statusText'),
     versionText: $('versionText'), updateBtn: $('updateBtn'),
     checkBtn: $('checkBtn'), checkLine: $('checkLine'),
+    themeBtn: $('themeBtn'),
     updateVer: $('updateVersion'), refreshHint: $('refreshHint'),
     btnRefresh: $('btnRefresh'), btnCpuRefresh: $('btnCpuRefresh'),
     btnCopy: $('btnCopy'), logoLed: $('logoLed'),
@@ -1111,6 +1112,10 @@
 
     if (typeof version.daily_hour === 'number' && version.daily_hour >= 0)
       line2 = '每天 ' + pad2(version.daily_hour) + ':00 自动检查';
+    else if (version.interval_sec > 0)
+      line2 = '每 ' + formatAge(version.interval_sec) + '自动检查';
+    else
+      line2 = '仅手动检查';
 
     el.checkLine.innerHTML = '<span>' + esc(line1) + '</span>'
       + (line2 ? '<span>' + esc(line2) + '</span>' : '');
@@ -2071,6 +2076,61 @@
     });
   }
 
+  /* ================================================================== */
+  /* 主题：深色 / 浅色                                                    */
+  /* ================================================================== */
+
+  var THEME_KEY = 'slhbond-theme';
+
+  function currentTheme() {
+    return document.documentElement.getAttribute('data-theme') === 'light'
+      ? 'light' : 'dark';
+  }
+
+  function applyTheme(theme, animate) {
+    var root = document.documentElement;
+
+    if (animate) {
+      root.classList.add('theme-switching');
+      /* 过渡结束后立刻摘掉，别让它影响之后的悬停动效 */
+      setTimeout(function () { root.classList.remove('theme-switching'); }, 260);
+    }
+
+    if (theme === 'light')
+      root.setAttribute('data-theme', 'light');
+    else
+      root.removeAttribute('data-theme');
+
+    /* 同步浏览器自身的滚动条/表单控件配色 */
+    var meta = document.querySelector('meta[name="color-scheme"]');
+    if (meta) meta.setAttribute('content', theme === 'light' ? 'light' : 'dark');
+
+    if (el.themeBtn) {
+      var tip = theme === 'light' ? '切换到深色主题' : '切换到浅色主题';
+
+      el.themeBtn.title = tip;
+      el.themeBtn.setAttribute('aria-label', tip);
+      el.themeBtn.setAttribute('aria-pressed', theme === 'light' ? 'true' : 'false');
+    }
+  }
+
+  function initTheme() {
+    var saved = null;
+
+    try { saved = localStorage.getItem(THEME_KEY); } catch (e) { /* 忽略 */ }
+
+    /* 首屏脚本已经设过属性了，这里只是把按钮的提示语对齐 */
+    applyTheme(saved === 'light' ? 'light' : currentTheme(), false);
+
+    if (!el.themeBtn) return;
+    el.themeBtn.addEventListener('click', function () {
+      var next = currentTheme() === 'light' ? 'dark' : 'light';
+
+      applyTheme(next, true);
+      try { localStorage.setItem(THEME_KEY, next); } catch (e) { /* 忽略 */ }
+    });
+  }
+
   function init() {
     ['platform', 'osversion', 'hostname', 'uptime', 'ipv4', 'ipv6'].forEach(function (k) {
       bindTooltip(fields[k]);
@@ -2082,6 +2142,8 @@
     el.btnCopy.addEventListener('click', copySummary);
     el.updateBtn.addEventListener('click', openUpdate);
     el.checkBtn.addEventListener('click', runCheck);
+
+    initTheme();
 
     window.addEventListener('resize', function () {
       Object.keys(fields).forEach(function (k) { markTruncated(fields[k]); });
